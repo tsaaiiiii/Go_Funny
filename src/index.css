@@ -1,0 +1,53 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+  --background: 40 33% 94%;
+  --foreground: 194 13% 21%;
+  --card: 30 100% 99%;
+  --card-foreground: 194 13% 21%;
+  --primary: 191 38% 55%;
+  --primary-foreground: 30 100% 99%;
+  --secondary: 131 17% 58%;
+  --secondary-foreground: 30 100% 99%;
+  --muted: 168 14% 89%;
+  --muted-foreground: 198 9% 49%;
+  --border: 145 16% 87%;
+  --input: 42 31% 96%;
+  --ring: 191 38% 55%;
+  --accent: 198 34% 75%;
+  --accent-foreground: 194 13% 21%;
+  --success: 132 28% 42%;
+  --warning: 38 60% 60%;
+  --danger: 0 42% 60%;
+}
+
+* {
+  @apply border-border;
+}
+
+html {
+  font-family: "Noto Sans TC", "PingFang TC", "Segoe UI", sans-serif;
+}
+
+body {
+  @apply bg-background bg-travel-wash text-foreground antialiased;
+  min-height: 100vh;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+input,
+textarea,
+button,
+select {
+  font: inherit;
+}
+
+::selection {
+  background: rgba(95, 168, 184, 0.24);
+}
