@@ -21,8 +21,10 @@ export function MembersPage() {
     return null
   }
 
+  const currentTrip = trip
+
   function hasExpenseRecord(memberId: string) {
-    return trip.expenses.some(
+    return currentTrip.expenses.some(
       (expense) =>
         expense.payerId === memberId ||
         expense.participants.includes(memberId) ||
@@ -35,12 +37,12 @@ export function MembersPage() {
       return
     }
 
-    addMember(trip.id, draftName)
+    addMember(currentTrip.id, draftName)
     setDraftName('')
   }
 
   async function handleCopyInviteLink() {
-    const inviteLink = `${window.location.origin}/trip/${trip.id}/join?invite=${trip.id}`
+    const inviteLink = `${window.location.origin}/trip/${currentTrip.id}/join?invite=${currentTrip.id}`
 
     try {
       await navigator.clipboard.writeText(inviteLink)
@@ -53,14 +55,14 @@ export function MembersPage() {
 
   return (
     <div className="space-y-5 pb-4">
-      <MobileHeader title="成員管理" backTo={`/trip/${trip.id}/manage`} />
+      <MobileHeader title="成員管理" backTo={`/trip/${currentTrip.id}/manage`} />
 
       <Card className="border-none bg-[linear-gradient(180deg,rgba(255,253,252,0.96),rgba(243,248,244,0.92))] shadow-float">
         <CardContent className="space-y-4 pt-5">
           <div className="flex items-center justify-between gap-3">
             <div>
               <p className="text-sm text-muted-foreground">旅伴名單</p>
-              <h2 className="text-2xl font-semibold">{trip.members.length} 位成員</h2>
+              <h2 className="text-2xl font-semibold">{currentTrip.members.length} 位成員</h2>
             </div>
             <Badge tone="green">可隨時新增</Badge>
           </div>
@@ -80,7 +82,7 @@ export function MembersPage() {
           </div>
 
           <div className="rounded-2xl border border-border bg-white px-4 py-3 text-sm text-muted-foreground">
-            {`/trip/${trip.id}/join?invite=${trip.id}`}
+            {`/trip/${currentTrip.id}/join?invite=${currentTrip.id}`}
           </div>
 
           <Button variant="outline" className="w-full gap-2" onClick={handleCopyInviteLink}>
@@ -114,9 +116,9 @@ export function MembersPage() {
       </div>
 
       <div className="space-y-3">
-        {trip.members.length === 0 ? (
+        {currentTrip.members.length === 0 ? (
           <EmptyState title="尚未加入旅伴" description="先加入至少一位成員，之後才能記錄支出或存入公積金。" />
-        ) : trip.members.map((member) => {
+        ) : currentTrip.members.map((member) => {
           const locked = hasExpenseRecord(member.id)
 
           return (
@@ -135,7 +137,7 @@ export function MembersPage() {
                 </div>
                 <button
                   type="button"
-                  onClick={() => deleteMember(trip.id, member.id)}
+                  onClick={() => deleteMember(currentTrip.id, member.id)}
                   disabled={locked}
                   className={`inline-flex h-10 w-10 items-center justify-center rounded-full border ${
                     locked

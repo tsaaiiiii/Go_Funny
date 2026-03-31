@@ -46,7 +46,8 @@ function findDefaultSelectedDate(expenseDates: string[], tripStartDate: string) 
   }
 
   if (expenseDates.length > 0) {
-    return [...expenseDates].sort().at(-1) ?? tripStartDate
+    const latestExpenseDate = [...expenseDates].sort()[expenseDates.length - 1]
+    return latestExpenseDate ?? tripStartDate
   }
 
   return allDateKey
@@ -93,36 +94,38 @@ export function TripDetailPage() {
     return null
   }
 
-  const totalExpense = trip.expenses.reduce((sum, expense) => sum + expense.amount, 0)
-  const totalContribution = trip.contributions.reduce((sum, contribution) => sum + contribution.amount, 0)
-  const tripDates = useMemo(() => buildDateRange(trip.startDate, trip.endDate), [trip.endDate, trip.startDate])
-  const expenseDates = useMemo(() => trip.expenses.map((expense) => expense.date), [trip.expenses])
-  const [selectedDate, setSelectedDate] = useState(findDefaultSelectedDate(expenseDates, trip.startDate))
+  const currentTrip = trip
+
+  const totalExpense = currentTrip.expenses.reduce((sum, expense) => sum + expense.amount, 0)
+  const totalContribution = currentTrip.contributions.reduce((sum, contribution) => sum + contribution.amount, 0)
+  const tripDates = useMemo(() => buildDateRange(currentTrip.startDate, currentTrip.endDate), [currentTrip.endDate, currentTrip.startDate])
+  const expenseDates = useMemo(() => currentTrip.expenses.map((expense) => expense.date), [currentTrip.expenses])
+  const [selectedDate, setSelectedDate] = useState<string>(findDefaultSelectedDate(expenseDates, currentTrip.startDate))
 
   useEffect(() => {
-    const nextDate = findDefaultSelectedDate(expenseDates, trip.startDate)
-    setSelectedDate((current) =>
+    const nextDate = findDefaultSelectedDate(expenseDates, currentTrip.startDate)
+    setSelectedDate((current: string) =>
       current === allDateKey || tripDates.includes(current) ? current : nextDate,
     )
-  }, [expenseDates, trip.startDate, tripDates])
+  }, [currentTrip.startDate, expenseDates, tripDates])
 
   const selectedDateExpenses =
-    selectedDate === allDateKey
-      ? trip.expenses
-      : trip.expenses.filter((expense) => expense.date === selectedDate)
+      selectedDate === allDateKey
+      ? currentTrip.expenses
+      : currentTrip.expenses.filter((expense) => expense.date === selectedDate)
   const selectedDateTotal = selectedDateExpenses.reduce((sum, expense) => sum + expense.amount, 0)
 
   return (
     <div className="space-y-5 pb-4">
-      <MobileHeader title={trip.title} backTo="/" />
+      <MobileHeader title={currentTrip.title} backTo="/" />
 
       <Card className="border-none shadow-float">
         <CardContent className="space-y-4 pt-5">
           <div className="flex items-center justify-between gap-3">
-            <Badge tone={trip.mode === 'expense' ? 'blue' : 'green'}>
-              {trip.mode === 'expense' ? '一般記帳' : '公積金'}
+            <Badge tone={currentTrip.mode === 'expense' ? 'blue' : 'green'}>
+              {currentTrip.mode === 'expense' ? '一般記帳' : '公積金'}
             </Badge>
-            <p className="text-sm text-muted-foreground">{trip.startDate} — {trip.endDate}</p>
+            <p className="text-sm text-muted-foreground">{currentTrip.startDate} — {currentTrip.endDate}</p>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
@@ -138,14 +141,14 @@ export function TripDetailPage() {
 
           <div className="flex gap-3">
             <Link
-              to={`/trip/${trip.id}/new-expense`}
+              to={`/trip/${currentTrip.id}/new-expense`}
               className="inline-flex h-11 flex-1 items-center justify-center gap-2 rounded-full bg-primary px-4 py-2 font-medium text-primary-foreground shadow-soft transition-all hover:bg-[#4E99A9]"
             >
               <Plus className="h-4 w-4" />
               新增支出
             </Link>
             <Link
-              to={`/trip/${trip.id}/settlement`}
+              to={`/trip/${currentTrip.id}/settlement`}
               className="inline-flex h-11 flex-1 items-center justify-center rounded-full border border-border bg-card px-4 py-2 font-medium text-foreground transition-all hover:bg-white"
             >
               查看結算
@@ -204,12 +207,12 @@ export function TripDetailPage() {
       </Card>
 
       <div className="space-y-3">
-        {trip.expenses.length === 0 ? (
+        {currentTrip.expenses.length === 0 ? (
           <EmptyState
             title="還沒有支出紀錄"
             description="先新增第一筆支出，之後結算結果才會出現。"
             action={
-              <Link to={`/trip/${trip.id}/new-expense`} className="inline-flex">
+              <Link to={`/trip/${currentTrip.id}/new-expense`} className="inline-flex">
                 <Badge tone="blue">新增第一筆支出</Badge>
               </Link>
             }
@@ -217,9 +220,9 @@ export function TripDetailPage() {
         ) : selectedDateExpenses.length === 0 ? (
           <EmptyState title="這一天還沒有支出" description="可以切換其他日期，或直接新增一筆支出。" />
         ) : selectedDateExpenses.map((expense) => {
-          const payer = trip.members.find((member) => member.id === expense.payerId)
-          const splitDetails = buildExpenseSplitDetails(expense, trip.members)
-          const participantNames = trip.members
+          const payer = currentTrip.members.find((member) => member.id === expense.payerId)
+          const splitDetails = buildExpenseSplitDetails(expense, currentTrip.members)
+          const participantNames = currentTrip.members
             .filter((member) => expense.participants.includes(member.id))
             .map((member) => member.name)
 
@@ -257,7 +260,7 @@ export function TripDetailPage() {
                     <p className="text-lg font-semibold text-foreground">{formatCurrency(expense.amount)}</p>
                     <button
                       type="button"
-                      onClick={() => deleteExpense(trip.id, expense.id)}
+                      onClick={() => deleteExpense(currentTrip.id, expense.id)}
                       className="mt-2 inline-flex h-7 items-center gap-1 rounded-full border border-[#F1C7C7] bg-[#FFF5F5] px-2.5 text-[11px] font-medium text-danger transition-colors hover:bg-[#FEEBEB]"
                     >
                       <Trash2 className="h-3 w-3" />
@@ -291,12 +294,12 @@ export function TripDetailPage() {
         })}
       </div>
 
-      {trip.mode === 'pool' ? (
+      {currentTrip.mode === 'pool' ? (
         <>
           <div className="flex items-center justify-between gap-3">
             <SectionHeading title="公積金存入" />
             <Link
-              to={`/trip/${trip.id}/new-contribution`}
+              to={`/trip/${currentTrip.id}/new-contribution`}
               className="inline-flex h-8 items-center justify-center rounded-full border border-[#CFE4D4] bg-[#F3FAF5] px-3 text-xs font-medium text-secondary transition-colors hover:bg-[#EAF6EE]"
             >
               新增公積金
@@ -304,13 +307,13 @@ export function TripDetailPage() {
           </div>
           <Card>
             <CardContent className="space-y-3 pt-5">
-              {trip.contributions.length === 0 ? (
+              {currentTrip.contributions.length === 0 ? (
                 <EmptyState
                   title="還沒有公積金存入"
                   description="先新增一筆共同資金，讓公積金模式的旅程有初始池金。"
                 />
-              ) : trip.contributions.map((contribution) => {
-                const member = trip.members.find((item) => item.id === contribution.memberId)
+              ) : currentTrip.contributions.map((contribution) => {
+                const member = currentTrip.members.find((item) => item.id === contribution.memberId)
                 return (
                   <div key={contribution.id} className="flex items-center justify-between rounded-2xl bg-[#F8FBF8] px-4 py-3">
                     <div>
@@ -321,7 +324,7 @@ export function TripDetailPage() {
                       <p className="font-semibold text-secondary">{formatCurrency(contribution.amount)}</p>
                       <button
                         type="button"
-                        onClick={() => deleteContribution(trip.id, contribution.id)}
+                        onClick={() => deleteContribution(currentTrip.id, contribution.id)}
                         className="mt-1 inline-flex h-7 items-center gap-1 rounded-full border border-[#F1C7C7] bg-[#FFF5F5] px-2.5 text-[11px] font-medium text-danger transition-colors hover:bg-[#FEEBEB]"
                       >
                         <Trash2 className="h-3 w-3" />

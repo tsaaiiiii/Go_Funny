@@ -24,7 +24,9 @@ export function ContributionCreatePage() {
     return null
   }
 
-  const totalContribution = trip.contributions.reduce((sum, item) => sum + item.amount, 0)
+  const currentTrip = trip
+
+  const totalContribution = currentTrip.contributions.reduce((sum, item) => sum + item.amount, 0)
 
   function handleSubmit() {
     const parsedAmount = Number(amount)
@@ -32,17 +34,17 @@ export function ContributionCreatePage() {
       return
     }
 
-    addContribution(trip.id, {
+    addContribution(currentTrip.id, {
       memberId: selectedMemberId,
       amount: parsedAmount,
       date,
     })
-    navigate(`/trip/${trip.id}`)
+    navigate(`/trip/${currentTrip.id}`)
   }
 
   return (
     <div className="space-y-5 pb-4">
-      <MobileHeader title="新增公積金" backTo={`/trip/${trip.id}/manage`} />
+      <MobileHeader title="新增公積金" backTo={`/trip/${currentTrip.id}/manage`} />
 
       <Card className="border-none bg-[linear-gradient(180deg,rgba(255,253,252,0.96),rgba(243,248,244,0.92))] shadow-float">
         <CardContent className="space-y-4 pt-5">
@@ -61,9 +63,9 @@ export function ContributionCreatePage() {
 
       <SectionHeading title="存入資訊" />
 
-      {trip.mode !== 'pool' ? (
+      {currentTrip.mode !== 'pool' ? (
         <EmptyState title="這趟旅程不是公積金模式" description="若要記錄共同池存入，請先把旅程模式調整為公積金。" />
-      ) : trip.members.length === 0 ? (
+      ) : currentTrip.members.length === 0 ? (
         <EmptyState title="還沒有成員" description="請先回到成員管理頁新增旅伴，才能建立公積金存入紀錄。" />
       ) : (
         <Card>
@@ -71,7 +73,7 @@ export function ContributionCreatePage() {
             <div className="space-y-2">
               <label className="text-sm font-medium text-foreground">成員</label>
               <div className="grid grid-cols-2 gap-3">
-                {trip.members.map((member) => {
+                {currentTrip.members.map((member) => {
                   const active = selectedMemberId === member.id
                   return (
                     <button

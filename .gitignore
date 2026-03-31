@@ -16,6 +16,7 @@ pnpm-debug.log*
 
 .pnpm-store/
 coverage/
+*.tsbuildinfo
 
 .idea/
 .vscode/
