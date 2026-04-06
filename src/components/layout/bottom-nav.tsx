@@ -2,17 +2,18 @@ import { Home, PlusCircle, ReceiptText, WalletCards } from 'lucide-react'
 import { useMemo } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 
-import { useAppData } from '@/lib/app-data'
+import { useGetTrips } from '@/api/generated/trips/trips'
 import { cn } from '@/lib/utils'
 
 export function BottomNav() {
   const location = useLocation()
-  const { trips } = useAppData()
+  const { data: tripsResponse } = useGetTrips()
+  const trips = tripsResponse?.data ?? []
   const tripSegment = location.pathname.split('/')[2]
   const latestTripId = useMemo(() => {
     const latestTrip = trips
       .slice()
-      .sort((a, b) => b.endDate.localeCompare(a.endDate) || b.startDate.localeCompare(a.startDate))[0]
+      .sort((a, b) => new Date(b.endDate).getTime() - new Date(a.endDate).getTime() || new Date(b.startDate).getTime() - new Date(a.startDate).getTime())[0]
 
     return latestTrip?.id
   }, [trips])
@@ -51,7 +52,7 @@ export function BottomNav() {
           const Icon = item.icon
 
           return (
-            <li key={item.to}>
+            <li key={item.label}>
               <Link
                 to={item.to}
                 className={cn(

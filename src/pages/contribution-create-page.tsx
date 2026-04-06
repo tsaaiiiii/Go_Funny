@@ -1,6 +1,7 @@
 import { PiggyBank, Plus } from 'lucide-react'
 import { useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
+import { useQueryClient } from '@tanstack/react-query'
 
 import { MobileHeader } from '@/components/layout/mobile-header'
 import { Badge } from '@/components/ui/badge'
@@ -8,15 +9,18 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { EmptyState } from '@/components/ui/empty-state'
 import { SectionHeading } from '@/components/ui/section-heading'
-import { useAppData } from '@/lib/app-data'
+import { useGetTripById } from '@/api/generated/trips/trips'
+import { useCreateTripContribution } from '@/api/generated/contributions/contributions'
 import { formatCurrency } from '@/lib/currency'
 
 export function ContributionCreatePage() {
   const { tripId } = useParams()
   const navigate = useNavigate()
-  const { addContribution, getTripById } = useAppData()
-  const trip = getTripById(tripId)
-  const [selectedMemberId, setSelectedMemberId] = useState(trip?.members[0]?.id ?? '')
+  const queryClient = useQueryClient()
+  const { data: tripResponse } = useGetTripById(tripId!)
+  const trip = tripResponse?.data
+  const createContributionMutation = useCreateTripContribution()
+  const [selectedMembershipId, setSelectedMembershipId] = useState(trip?.memberships[0]?.id ?? '')
   const [amount, setAmount] = useState('3000')
   const [date, setDate] = useState('2025-06-11')
 
@@ -24,27 +28,27 @@ export function ContributionCreatePage() {
     return null
   }
 
-  const currentTrip = trip
+  const totalContribution = trip.contributions.reduce((sum, item) => sum + item.amount, 0)
 
-  const totalContribution = currentTrip.contributions.reduce((sum, item) => sum + item.amount, 0)
-
-  function handleSubmit() {
+  async function handleSubmit() {
     const parsedAmount = Number(amount)
-    if (!selectedMemberId || Number.isNaN(parsedAmount) || parsedAmount <= 0) {
-      return
-    }
+    if (!selectedMembershipId || Number.isNaN(parsedAmount) || parsedAmount <= 0) return
 
-    addContribution(currentTrip.id, {
-      memberId: selectedMemberId,
-      amount: parsedAmount,
-      date,
+    await createContributionMutation.mutateAsync({
+      tripId: trip!.id,
+      data: {
+        membershipId: selectedMembershipId,
+        amount: parsedAmount,
+        date,
+      },
     })
-    navigate(`/trip/${currentTrip.id}`)
+    await queryClient.invalidateQueries({ queryKey: [`/go-funny-api/trips/${trip!.id}`] })
+    navigate(`/trip/${trip!.id}`)
   }
 
   return (
     <div className="space-y-5 pb-4">
-      <MobileHeader title="新增公積金" backTo={`/trip/${currentTrip.id}/manage`} />
+      <MobileHeader title="新增公積金" backTo={`/trip/${trip.id}/manage`} />
 
       <Card className="border-none bg-[linear-gradient(180deg,rgba(255,253,252,0.96),rgba(243,248,244,0.92))] shadow-float">
         <CardContent className="space-y-4 pt-5">
@@ -63,31 +67,39 @@ export function ContributionCreatePage() {
 
       <SectionHeading title="存入資訊" />
 
-      {currentTrip.mode !== 'pool' ? (
+      {trip.mode !== 'pool' ? (
         <EmptyState title="這趟旅程不是公積金模式" description="若要記錄共同池存入，請先把旅程模式調整為公積金。" />
-      ) : currentTrip.members.length === 0 ? (
-        <EmptyState title="還沒有成員" description="請先回到成員管理頁新增旅伴，才能建立公積金存入紀錄。" />
+      ) : trip.memberships.length === 0 ? (
+        <EmptyState
+          title="還沒有成員"
+          description="請先回到成員管理頁邀請旅伴加入，才能建立公積金存入紀錄。"
+          action={
+            <Link to={`/trip/${tripId}/members`} className="inline-flex">
+              <Button>前往成員管理</Button>
+            </Link>
+          }
+        />
       ) : (
         <Card>
           <CardContent className="space-y-5 pt-5">
             <div className="space-y-2">
               <label className="text-sm font-medium text-foreground">成員</label>
               <div className="grid grid-cols-2 gap-3">
-                {currentTrip.members.map((member) => {
-                  const active = selectedMemberId === member.id
+                {trip.memberships.map((member) => {
+                  const active = selectedMembershipId === member.id
                   return (
                     <button
                       key={member.id}
                       type="button"
-                      onClick={() => setSelectedMemberId(member.id)}
+                      onClick={() => setSelectedMembershipId(member.id)}
                       className={`rounded-2xl border px-4 py-4 text-left ${active ? 'border-secondary bg-[#F3F8F4]' : 'border-border bg-white'}`}
                     >
                       <div className="flex items-center gap-3">
-                        <div className={`flex h-10 w-10 items-center justify-center rounded-full text-sm font-semibold ${member.color}`}>
-                          {member.avatar}
+                        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#D5E9EF] text-sm font-semibold">
+                          {member.user.name.charAt(0).toUpperCase()}
                         </div>
                         <div>
-                          <p className="font-medium">{member.name}</p>
+                          <p className="font-medium">{member.user.name}</p>
                           <p className="text-xs text-muted-foreground">{active ? '此次存入者' : '點擊選擇'}</p>
                         </div>
                       </div>
@@ -113,7 +125,7 @@ export function ContributionCreatePage() {
         </Card>
       )}
 
-      <Button size="lg" variant="secondary" className="w-full gap-2" onClick={handleSubmit} disabled={!selectedMemberId || Number(amount) <= 0}>
+      <Button size="lg" variant="secondary" className="w-full gap-2" onClick={handleSubmit} disabled={!selectedMembershipId || Number(amount) <= 0}>
         <Plus className="h-4 w-4" />
         儲存存入紀錄
       </Button>

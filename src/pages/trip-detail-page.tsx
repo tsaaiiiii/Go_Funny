@@ -1,20 +1,22 @@
 import { useEffect, useMemo, useState } from 'react'
 import { ChevronUp, Plus, Trash2, Users, Wallet2 } from 'lucide-react'
 import { Link, useParams } from 'react-router-dom'
+import { useQueryClient } from '@tanstack/react-query'
 
 import { MobileHeader } from '@/components/layout/mobile-header'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
 import { EmptyState } from '@/components/ui/empty-state'
 import { SectionHeading } from '@/components/ui/section-heading'
-import { useAppData } from '@/lib/app-data'
+import { useGetTripById } from '@/api/generated/trips/trips'
+import { useDeleteTripExpense } from '@/api/generated/expenses/expenses'
 import { formatCurrency } from '@/lib/currency'
-import type { Expense, Member } from '@/types'
+import type { Expense, Member } from '@/api/generated/model'
 
 function buildDateRange(startDate: string, endDate: string) {
   const dates: string[] = []
-  const current = new Date(`${startDate}T00:00:00`)
-  const end = new Date(`${endDate}T00:00:00`)
+  const current = new Date(startDate)
+  const end = new Date(endDate)
 
   while (current <= end) {
     dates.push(current.toISOString().slice(0, 10))
@@ -54,78 +56,64 @@ function findDefaultSelectedDate(expenseDates: string[], tripStartDate: string) 
 }
 
 function buildExpenseSplitDetails(expense: Expense, members: Member[]) {
-  if (expense.splitType === 'custom' && expense.splits && expense.splits.length > 0) {
-    return expense.splits
-      .map((split) => ({
-        member: members.find((member) => member.id === split.memberId),
-        amount: split.amount,
-      }))
-      .filter((item): item is { member: Member; amount: number } => Boolean(item.member))
-  }
+  if (!expense.splits || expense.splits.length === 0) return []
 
-  const targets =
-    expense.splitType === 'equal_all'
-      ? members
-      : members.filter((member) => expense.participants.includes(member.id))
-
-  if (targets.length === 0) {
-    return []
-  }
-
-  const base = Math.floor(expense.amount / targets.length)
-  let remainder = expense.amount - base * targets.length
-
-  return targets.map((member) => {
-    const extra = remainder > 0 ? 1 : 0
-    remainder -= extra
-    return {
-      member,
-      amount: base + extra,
-    }
-  })
+  return expense.splits
+    .map((split) => ({
+      member: members.find((member) => member.id === split.membershipId),
+      amount: split.amount,
+    }))
+    .filter((item): item is { member: Member; amount: number } => Boolean(item.member))
 }
 
 export function TripDetailPage() {
   const { tripId } = useParams()
-  const { deleteContribution, deleteExpense, getTripById } = useAppData()
-  const trip = getTripById(tripId)
+  const queryClient = useQueryClient()
+  const { data: tripResponse } = useGetTripById(tripId!)
+  const trip = tripResponse?.data
+  const deleteExpenseMutation = useDeleteTripExpense()
 
   if (!trip) {
     return null
   }
 
-  const currentTrip = trip
-
-  const totalExpense = currentTrip.expenses.reduce((sum, expense) => sum + expense.amount, 0)
-  const totalContribution = currentTrip.contributions.reduce((sum, contribution) => sum + contribution.amount, 0)
-  const tripDates = useMemo(() => buildDateRange(currentTrip.startDate, currentTrip.endDate), [currentTrip.endDate, currentTrip.startDate])
-  const expenseDates = useMemo(() => currentTrip.expenses.map((expense) => expense.date), [currentTrip.expenses])
-  const [selectedDate, setSelectedDate] = useState<string>(findDefaultSelectedDate(expenseDates, currentTrip.startDate))
+  const startDateStr = new Date(trip.startDate).toISOString().slice(0, 10)
+  const endDateStr = new Date(trip.endDate).toISOString().slice(0, 10)
+  const totalExpense = trip.expenses.reduce((sum, expense) => sum + expense.amount, 0)
+  const totalContribution = trip.contributions.reduce((sum, contribution) => sum + contribution.amount, 0)
+  const tripDates = useMemo(() => buildDateRange(startDateStr, endDateStr), [startDateStr, endDateStr])
+  const expenseDates = useMemo(() => trip.expenses.map((expense) => new Date(expense.date).toISOString().slice(0, 10)), [trip.expenses])
+  const [selectedDate, setSelectedDate] = useState<string>(findDefaultSelectedDate(expenseDates, startDateStr))
 
   useEffect(() => {
-    const nextDate = findDefaultSelectedDate(expenseDates, currentTrip.startDate)
+    const nextDate = findDefaultSelectedDate(expenseDates, startDateStr)
     setSelectedDate((current: string) =>
       current === allDateKey || tripDates.includes(current) ? current : nextDate,
     )
-  }, [currentTrip.startDate, expenseDates, tripDates])
+  }, [startDateStr, expenseDates, tripDates])
 
   const selectedDateExpenses =
       selectedDate === allDateKey
-      ? currentTrip.expenses
-      : currentTrip.expenses.filter((expense) => expense.date === selectedDate)
+      ? trip.expenses
+      : trip.expenses.filter((expense) => new Date(expense.date).toISOString().slice(0, 10) === selectedDate)
   const selectedDateTotal = selectedDateExpenses.reduce((sum, expense) => sum + expense.amount, 0)
+
+  async function handleDeleteExpense(expenseId: string) {
+    await deleteExpenseMutation.mutateAsync({ tripId: tripId!, expenseId })
+    await queryClient.invalidateQueries({ queryKey: [`/go-funny-api/trips/${tripId}`] })
+  }
 
   return (
     <div className="space-y-5 pb-4">
-      <MobileHeader title={currentTrip.title} backTo="/" />
+      <MobileHeader title={trip.title} backTo="/" />
 
       <Card className="border-none shadow-float">
         <CardContent className="space-y-4 pt-5">
           <div className="flex items-center justify-between gap-3">
-            <Badge tone={currentTrip.mode === 'expense' ? 'blue' : 'green'}>
-              {currentTrip.mode === 'expense' ? '一般記帳' : '公積金'}
+            <Badge tone={trip.mode === 'expense' ? 'blue' : 'green'}>
+              {trip.mode === 'expense' ? '一般記帳' : '公積金'}
             </Badge>
-            <p className="text-sm text-muted-foreground">{currentTrip.startDate} — {currentTrip.endDate}</p>
+            <p className="text-sm text-muted-foreground">{startDateStr} — {endDateStr}</p>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
@@ -141,14 +129,14 @@ export function TripDetailPage() {
 
           <div className="flex gap-3">
             <Link
-              to={`/trip/${currentTrip.id}/new-expense`}
+              to={`/trip/${trip.id}/new-expense`}
               className="inline-flex h-11 flex-1 items-center justify-center gap-2 rounded-full bg-primary px-4 py-2 font-medium text-primary-foreground shadow-soft transition-all hover:bg-[#4E99A9]"
             >
               <Plus className="h-4 w-4" />
               新增支出
             </Link>
             <Link
-              to={`/trip/${currentTrip.id}/settlement`}
+              to={`/trip/${trip.id}/settlement`}
               className="inline-flex h-11 flex-1 items-center justify-center rounded-full border border-border bg-card px-4 py-2 font-medium text-foreground transition-all hover:bg-white"
             >
               查看結算
@@ -207,12 +195,12 @@ export function TripDetailPage() {
       </Card>
 
       <div className="space-y-3">
-        {currentTrip.expenses.length === 0 ? (
+        {trip.expenses.length === 0 ? (
           <EmptyState
             title="還沒有支出紀錄"
             description="先新增第一筆支出，之後結算結果才會出現。"
             action={
-              <Link to={`/trip/${currentTrip.id}/new-expense`} className="inline-flex">
+              <Link to={`/trip/${trip.id}/new-expense`} className="inline-flex">
                 <Badge tone="blue">新增第一筆支出</Badge>
               </Link>
             }
@@ -220,11 +208,9 @@ export function TripDetailPage() {
         ) : selectedDateExpenses.length === 0 ? (
           <EmptyState title="這一天還沒有支出" description="可以切換其他日期，或直接新增一筆支出。" />
         ) : selectedDateExpenses.map((expense) => {
-          const payer = currentTrip.members.find((member) => member.id === expense.payerId)
-          const splitDetails = buildExpenseSplitDetails(expense, currentTrip.members)
-          const participantNames = currentTrip.members
-            .filter((member) => expense.participants.includes(member.id))
-            .map((member) => member.name)
+          const payer = trip.memberships.find((member) => member.id === expense.payerMembershipId)
+          const splitDetails = buildExpenseSplitDetails(expense, trip.memberships)
+          const participantNames = splitDetails.map((detail) => detail.member.user.name)
 
           return (
             <Card key={expense.id}>
@@ -239,18 +225,18 @@ export function TripDetailPage() {
                             ? '部分平分'
                             : '自訂金額'}
                       </Badge>
-                      <span className="text-xs text-muted-foreground">{expense.date}</span>
+                      <span className="text-xs text-muted-foreground">{new Date(expense.date).toISOString().slice(0, 10)}</span>
                     </div>
                     <h3 className="text-base font-semibold">{expense.title}</h3>
                     <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
                       <span className="inline-flex items-center gap-1">
                         <Users className="h-4 w-4" />
-                        {expense.participants.length} 位參與
+                        {splitDetails.length} 位參與
                       </span>
                       {payer ? (
                         <span className="inline-flex items-center gap-1">
                           <Wallet2 className="h-4 w-4" />
-                          {payer.name} 付款
+                          {payer.user.name} 付款
                         </span>
                         ) : null}
                     </div>
@@ -260,7 +246,7 @@ export function TripDetailPage() {
                     <p className="text-lg font-semibold text-foreground">{formatCurrency(expense.amount)}</p>
                     <button
                       type="button"
-                      onClick={() => deleteExpense(currentTrip.id, expense.id)}
+                      onClick={() => handleDeleteExpense(expense.id)}
                       className="mt-2 inline-flex h-7 items-center gap-1 rounded-full border border-[#F1C7C7] bg-[#FFF5F5] px-2.5 text-[11px] font-medium text-danger transition-colors hover:bg-[#FEEBEB]"
                     >
                       <Trash2 className="h-3 w-3" />
@@ -273,7 +259,7 @@ export function TripDetailPage() {
                   <div className="mt-2 space-y-2 text-xs text-muted-foreground">
                     <p>
                       {payer
-                        ? `${payer.name} 付款 ${formatCurrency(expense.amount)}`
+                        ? `${payer.user.name} 付款 ${formatCurrency(expense.amount)}`
                         : `共同錢池支付 ${formatCurrency(expense.amount)}`}
                     </p>
                     <p>參與成員：{participantNames.length > 0 ? participantNames.join('、') : '全部成員'}</p>
@@ -281,7 +267,7 @@ export function TripDetailPage() {
                       <p className="font-medium text-foreground">分攤明細</p>
                       {splitDetails.map((detail) => (
                         <div key={detail.member.id} className="flex items-center justify-between rounded-xl bg-white px-2.5 py-1.5">
-                          <span>{detail.member.name}</span>
+                          <span>{detail.member.user.name}</span>
                           <span className="font-medium text-foreground">{formatCurrency(detail.amount)}</span>
                         </div>
                       ))}
@@ -294,12 +280,12 @@ export function TripDetailPage() {
         })}
       </div>
 
-      {currentTrip.mode === 'pool' ? (
+      {trip.mode === 'pool' ? (
         <>
           <div className="flex items-center justify-between gap-3">
             <SectionHeading title="公積金存入" />
             <Link
-              to={`/trip/${currentTrip.id}/new-contribution`}
+              to={`/trip/${trip.id}/new-contribution`}
               className="inline-flex h-8 items-center justify-center rounded-full border border-[#CFE4D4] bg-[#F3FAF5] px-3 text-xs font-medium text-secondary transition-colors hover:bg-[#EAF6EE]"
             >
               新增公積金
@@ -307,29 +293,21 @@ export function TripDetailPage() {
           </div>
           <Card>
             <CardContent className="space-y-3 pt-5">
-              {currentTrip.contributions.length === 0 ? (
+              {trip.contributions.length === 0 ? (
                 <EmptyState
                   title="還沒有公積金存入"
                   description="先新增一筆共同資金，讓公積金模式的旅程有初始池金。"
                 />
-              ) : currentTrip.contributions.map((contribution) => {
-                const member = currentTrip.members.find((item) => item.id === contribution.memberId)
+              ) : trip.contributions.map((contribution) => {
+                const member = trip.memberships.find((item) => item.id === contribution.membershipId)
                 return (
                   <div key={contribution.id} className="flex items-center justify-between rounded-2xl bg-[#F8FBF8] px-4 py-3">
                     <div>
-                      <p className="font-medium">{member?.name}</p>
-                      <p className="text-xs text-muted-foreground">{contribution.date}</p>
+                      <p className="font-medium">{member?.user.name}</p>
+                      <p className="text-xs text-muted-foreground">{new Date(contribution.date).toISOString().slice(0, 10)}</p>
                     </div>
                     <div className="text-right">
                       <p className="font-semibold text-secondary">{formatCurrency(contribution.amount)}</p>
-                      <button
-                        type="button"
-                        onClick={() => deleteContribution(currentTrip.id, contribution.id)}
-                        className="mt-1 inline-flex h-7 items-center gap-1 rounded-full border border-[#F1C7C7] bg-[#FFF5F5] px-2.5 text-[11px] font-medium text-danger transition-colors hover:bg-[#FEEBEB]"
-                      >
-                        <Trash2 className="h-3 w-3" />
-                        刪除
-                      </button>
                     </div>
                   </div>
                 )

@@ -2,12 +2,9 @@ openapi: 3.1.0
 info:
   title: Go Funny API
   version: 0.1.0
-  summary: MVP API contract draft for trip expense sharing.
-  description: >-
-    This is an early draft used for frontend planning. The final OpenAPI spec
-    should be owned and provided by the backend implementation.
+  summary: MVP API contract for trip expense sharing.
 servers:
-  - url: http://localhost:3000
+  - url: http://localhost:3000/go-funny-api
     description: Local development server
 tags:
   - name: Trips
@@ -16,6 +13,7 @@ tags:
   - name: Contributions
   - name: Settlement
   - name: Invitations
+
 paths:
   /trips:
     get:
@@ -30,7 +28,7 @@ paths:
               schema:
                 type: array
                 items:
-                  $ref: '#/components/schemas/TripSummary'
+                  $ref: '#/components/schemas/Trip'
     post:
       tags: [Trips]
       operationId: createTrip
@@ -47,7 +45,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Trip'
+                $ref: '#/components/schemas/TripSummary'
         '400':
           $ref: '#/components/responses/BadRequest'
 
@@ -55,7 +53,7 @@ paths:
     get:
       tags: [Trips]
       operationId: getTripById
-      summary: Get trip detail
+      summary: Get trip detail with members, expenses, contributions
       parameters:
         - $ref: '#/components/parameters/TripId'
       responses:
@@ -85,13 +83,24 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Trip'
+                $ref: '#/components/schemas/TripSummary'
         '400':
           $ref: '#/components/responses/BadRequest'
         '404':
           $ref: '#/components/responses/NotFound'
+    delete:
+      tags: [Trips]
+      operationId: deleteTrip
+      summary: Delete trip
+      parameters:
+        - $ref: '#/components/parameters/TripId'
+      responses:
+        '204':
+          description: Trip deleted
+        '404':
+          $ref: '#/components/responses/NotFound'
 
-  /trips/{tripId}/members:
+  /members/{tripId}:
     get:
       tags: [Members]
       operationId: getTripMembers
@@ -109,31 +118,8 @@ paths:
                   $ref: '#/components/schemas/Member'
         '404':
           $ref: '#/components/responses/NotFound'
-    post:
-      tags: [Members]
-      operationId: createTripMember
-      summary: Add member
-      parameters:
-        - $ref: '#/components/parameters/TripId'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/CreateMemberRequest'
-      responses:
-        '201':
-          description: Member created
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Member'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '404':
-          $ref: '#/components/responses/NotFound'
 
-  /trips/{tripId}/members/{memberId}:
+  /members/{tripId}/{memberId}:
     delete:
       tags: [Members]
       operationId: deleteTripMember
@@ -147,7 +133,7 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
 
-  /trips/{tripId}/expenses:
+  /expenses/{tripId}:
     get:
       tags: [Expenses]
       operationId: getTripExpenses
@@ -189,7 +175,7 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
 
-  /trips/{tripId}/expenses/{expenseId}:
+  /expenses/{tripId}/{expenseId}:
     delete:
       tags: [Expenses]
       operationId: deleteTripExpense
@@ -203,7 +189,7 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
 
-  /trips/{tripId}/contributions:
+  /contributions/{tripId}:
     get:
       tags: [Contributions]
       operationId: getTripContributions
@@ -245,7 +231,7 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
 
-  /trips/{tripId}/settlement:
+  /settlement/{tripId}:
     get:
       tags: [Settlement]
       operationId: getTripSettlement
@@ -262,7 +248,7 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
 
-  /trips/{tripId}/invitations:
+  /invitations/{tripId}:
     post:
       tags: [Invitations]
       operationId: createTripInvitation
@@ -296,11 +282,11 @@ paths:
         - $ref: '#/components/parameters/InvitationToken'
       responses:
         '200':
-          description: Invitation info
+          description: Invitation info with trip data
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Invitation'
+                $ref: '#/components/schemas/InvitationWithTrip'
         '404':
           $ref: '#/components/responses/NotFound'
 
@@ -312,18 +298,18 @@ paths:
       parameters:
         - $ref: '#/components/parameters/InvitationToken'
       requestBody:
-        required: false
+        required: true
         content:
           application/json:
             schema:
               $ref: '#/components/schemas/AcceptInvitationRequest'
       responses:
-        '200':
-          description: Invitation accepted
+        '201':
+          description: Invitation accepted, membership created
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AcceptInvitationResponse'
+                $ref: '#/components/schemas/Member'
         '400':
           $ref: '#/components/responses/BadRequest'
         '404':
@@ -379,28 +365,55 @@ components:
       type: string
       enum: [equal_all, equal_selected, custom]
 
-    Member:
+    User:
       type: object
-      required: [id, name]
+      required: [id, email, name, createdAt]
       properties:
         id:
           type: string
+        email:
+          type: string
         name:
           type: string
+        createdAt:
+          type: string
+          format: date-time
+
+    Member:
+      type: object
+      required: [id, tripId, userId, createdAt, user]
+      properties:
+        id:
+          type: string
+        tripId:
+          type: string
+        userId:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        user:
+          $ref: '#/components/schemas/User'
 
     ExpenseSplit:
       type: object
-      required: [memberId, amount]
+      required: [id, expenseId, membershipId, amount, createdAt]
       properties:
-        memberId:
+        id:
+          type: string
+        expenseId:
+          type: string
+        membershipId:
           type: string
         amount:
-          type: number
-          minimum: 0
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
 
     Expense:
       type: object
-      required: [id, tripId, title, amount, splitType, participants, date]
+      required: [id, tripId, title, amount, date, splitType, createdAt]
       properties:
         id:
           type: string
@@ -409,148 +422,111 @@ components:
         title:
           type: string
         amount:
-          type: number
-          minimum: 0
+          type: integer
+        date:
+          type: string
+          format: date-time
         splitType:
           $ref: '#/components/schemas/SplitType'
-        participants:
-          type: array
-          items:
-            type: string
+        payerMembershipId:
+          type: [string, 'null']
+        note:
+          type: [string, 'null']
+        createdAt:
+          type: string
+          format: date-time
         splits:
           type: array
           items:
             $ref: '#/components/schemas/ExpenseSplit'
-        payerMemberId:
-          type: [string, 'null']
-        date:
-          type: string
-          format: date
-        note:
-          type: [string, 'null']
 
     Contribution:
       type: object
-      required: [id, tripId, memberId, amount, date]
+      required: [id, tripId, membershipId, amount, date, createdAt]
       properties:
         id:
           type: string
         tripId:
           type: string
-        memberId:
+        membershipId:
           type: string
         amount:
-          type: number
-          minimum: 0
+          type: integer
         date:
           type: string
-          format: date
-
-    SettlementRow:
-      type: object
-      required: [memberId, paid, share, net]
-      properties:
-        memberId:
+          format: date-time
+        createdAt:
           type: string
-        paid:
-          type: number
-        share:
-          type: number
-        net:
-          type: number
+          format: date-time
 
     SettlementTransfer:
       type: object
-      required: [fromMemberId, toMemberId, amount]
+      required: [from, to, amount]
       properties:
-        fromMemberId:
+        from:
           type: string
-        toMemberId:
+        to:
           type: string
         amount:
           type: number
-          minimum: 0
 
     Settlement:
       type: object
-      required: [tripId, mode, rows, transfers]
+      required: [tripId, mode, transfers]
       properties:
         tripId:
           type: string
         mode:
           $ref: '#/components/schemas/TripMode'
-        rows:
-          type: array
-          items:
-            $ref: '#/components/schemas/SettlementRow'
         transfers:
           type: array
           items:
             $ref: '#/components/schemas/SettlementTransfer'
 
-    InvitationRole:
-      type: string
-      enum: [editor]
-
-    InvitationStatus:
-      type: string
-      enum: [active, accepted, expired, revoked]
-
     Invitation:
       type: object
-      required: [tripId, token, role, status, inviteUrl]
+      required: [id, tripId, token, role, usedCount, createdAt]
       properties:
+        id:
+          type: string
         tripId:
           type: string
         token:
           type: string
         role:
-          $ref: '#/components/schemas/InvitationRole'
-        status:
-          $ref: '#/components/schemas/InvitationStatus'
-        inviteUrl:
           type: string
+          enum: [editor]
+        maxUses:
+          type: [integer, 'null']
+        usedCount:
+          type: integer
         expiresAt:
           type: [string, 'null']
           format: date-time
-        maxUses:
-          type: [integer, 'null']
-          minimum: 1
+        acceptedAt:
+          type: [string, 'null']
+          format: date-time
+        revokedAt:
+          type: [string, 'null']
+          format: date-time
         createdByUserId:
           type: [string, 'null']
-
-    CreateInvitationRequest:
-      type: object
-      properties:
-        role:
-          $ref: '#/components/schemas/InvitationRole'
-        expiresAt:
-          type: [string, 'null']
+        createdAt:
+          type: string
           format: date-time
-        maxUses:
-          type: [integer, 'null']
-          minimum: 1
 
-    AcceptInvitationRequest:
-      type: object
-      properties:
-        displayName:
-          type: [string, 'null']
-
-    AcceptInvitationResponse:
-      type: object
-      required: [tripId, memberId]
-      properties:
-        tripId:
-          type: string
-        memberId:
-          type: string
-        collaboratorId:
-          type: [string, 'null']
+    InvitationWithTrip:
+      allOf:
+        - $ref: '#/components/schemas/Invitation'
+        - type: object
+          required: [trip]
+          properties:
+            trip:
+              $ref: '#/components/schemas/TripSummary'
 
     TripSummary:
       type: object
-      required: [id, title, mode, startDate, endDate]
+      required: [id, title, mode, startDate, endDate, createdAt]
       properties:
         id:
           type: string
@@ -562,18 +538,21 @@ components:
           $ref: '#/components/schemas/TripMode'
         startDate:
           type: string
-          format: date
+          format: date-time
         endDate:
           type: string
-          format: date
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
 
     Trip:
       allOf:
         - $ref: '#/components/schemas/TripSummary'
         - type: object
-          required: [members, expenses, contributions]
+          required: [memberships, expenses, contributions]
           properties:
-            members:
+            memberships:
               type: array
               items:
                 $ref: '#/components/schemas/Member'
@@ -619,13 +598,6 @@ components:
           type: string
           format: date
 
-    CreateMemberRequest:
-      type: object
-      required: [name]
-      properties:
-        name:
-          type: string
-
     CreateExpenseRequest:
       type: object
       required: [title, amount, splitType, date]
@@ -633,19 +605,11 @@ components:
         title:
           type: string
         amount:
-          type: number
+          type: integer
           minimum: 0
         splitType:
           $ref: '#/components/schemas/SplitType'
-        participants:
-          type: array
-          items:
-            type: string
-        splits:
-          type: array
-          items:
-            $ref: '#/components/schemas/ExpenseSplit'
-        payerMemberId:
+        payerMembershipId:
           type: [string, 'null']
         date:
           type: string
@@ -655,16 +619,29 @@ components:
 
     CreateContributionRequest:
       type: object
-      required: [memberId, amount, date]
+      required: [membershipId, amount, date]
       properties:
-        memberId:
+        membershipId:
           type: string
         amount:
-          type: number
+          type: integer
           minimum: 0
         date:
           type: string
           format: date
+
+    CreateInvitationRequest:
+      type: object
+      properties:
+        createdByUserId:
+          type: [string, 'null']
+
+    AcceptInvitationRequest:
+      type: object
+      required: [userId]
+      properties:
+        userId:
+          type: string
 
     ErrorResponse:
       type: object
@@ -672,10 +649,3 @@ components:
       properties:
         message:
           type: string
-        code:
-          type: [string, 'null']
-        details:
-          oneOf:
-            - type: 'null'
-            - type: object
-              additionalProperties: true

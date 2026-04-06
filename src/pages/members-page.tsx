@@ -1,6 +1,7 @@
-import { AlertTriangle, Copy, Plus, Trash2, Users } from 'lucide-react'
+import { AlertTriangle, Copy, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import { useParams } from 'react-router-dom'
+import { useQueryClient } from '@tanstack/react-query'
 
 import { MobileHeader } from '@/components/layout/mobile-header'
 import { Badge } from '@/components/ui/badge'
@@ -8,41 +9,47 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { EmptyState } from '@/components/ui/empty-state'
 import { SectionHeading } from '@/components/ui/section-heading'
-import { useAppData } from '@/lib/app-data'
+import { useGetTripById } from '@/api/generated/trips/trips'
+import { useDeleteTripMember } from '@/api/generated/members/members'
+import { useCreateTripInvitation } from '@/api/generated/invitations/invitations'
 
 export function MembersPage() {
   const { tripId } = useParams()
-  const { addMember, deleteMember, getTripById } = useAppData()
-  const trip = getTripById(tripId)
-  const [draftName, setDraftName] = useState('')
+  const queryClient = useQueryClient()
+  const { data: tripResponse } = useGetTripById(tripId!)
+  const trip = tripResponse?.data
+  const deleteMemberMutation = useDeleteTripMember()
+  const createInvitationMutation = useCreateTripInvitation()
+  const [inviteToken, setInviteToken] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
 
   if (!trip) {
     return null
   }
 
-  const currentTrip = trip
-
-  function hasExpenseRecord(memberId: string) {
-    return currentTrip.expenses.some(
+  function hasExpenseRecord(membershipId: string) {
+    return trip!.expenses.some(
       (expense) =>
-        expense.payerId === memberId ||
-        expense.participants.includes(memberId) ||
-        Boolean(expense.splits?.some((split) => split.memberId === memberId)),
+        expense.payerMembershipId === membershipId ||
+        Boolean(expense.splits?.some((split) => split.membershipId === membershipId)),
     )
   }
 
-  function handleAddMember() {
-    if (!draftName.trim()) {
-      return
-    }
+  async function handleDeleteMember(memberId: string) {
+    await deleteMemberMutation.mutateAsync({ tripId: tripId!, memberId })
+    await queryClient.invalidateQueries({ queryKey: [`/go-funny-api/trips/${tripId}`] })
+  }
 
-    addMember(currentTrip.id, draftName)
-    setDraftName('')
+  async function handleCreateInviteLink() {
+    const result = await createInvitationMutation.mutateAsync({ tripId: tripId!, data: {} })
+    if (result.status === 201) {
+      setInviteToken(result.data.token)
+    }
   }
 
   async function handleCopyInviteLink() {
-    const inviteLink = `${window.location.origin}/trip/${currentTrip.id}/join?invite=${currentTrip.id}`
+    if (!inviteToken) return
+    const inviteLink = `${window.location.origin}/invitations/${inviteToken}`
 
     try {
       await navigator.clipboard.writeText(inviteLink)
@@ -55,55 +62,47 @@ export function MembersPage() {
 
   return (
     <div className="space-y-5 pb-4">
-      <MobileHeader title="成員管理" backTo={`/trip/${currentTrip.id}/manage`} />
+      <MobileHeader title="成員管理" backTo={`/trip/${trip.id}/manage`} />
 
       <Card className="border-none bg-[linear-gradient(180deg,rgba(255,253,252,0.96),rgba(243,248,244,0.92))] shadow-float">
         <CardContent className="space-y-4 pt-5">
           <div className="flex items-center justify-between gap-3">
             <div>
               <p className="text-sm text-muted-foreground">旅伴名單</p>
-              <h2 className="text-2xl font-semibold">{currentTrip.members.length} 位成員</h2>
+              <h2 className="text-2xl font-semibold">{trip.memberships.length} 位成員</h2>
             </div>
-            <Badge tone="green">可隨時新增</Badge>
+            <Badge tone="green">邀請加入</Badge>
           </div>
         </CardContent>
       </Card>
 
-      <SectionHeading title="新增成員" />
+      <SectionHeading title="邀請成員" />
 
       <Card className="border-none bg-[linear-gradient(180deg,rgba(244,250,251,0.96),rgba(248,252,252,0.92))]">
         <CardContent className="space-y-3 pt-5">
           <div className="flex items-center justify-between gap-3">
             <div>
               <p className="font-medium text-foreground">邀請好友加入</p>
-              <p className="text-sm text-muted-foreground">複製邀請連結分享給旅伴</p>
+              <p className="text-sm text-muted-foreground">產生邀請連結分享給旅伴</p>
             </div>
             <Badge tone="blue">協作</Badge>
           </div>
 
-          <div className="rounded-2xl border border-border bg-white px-4 py-3 text-sm text-muted-foreground">
-            {`/trip/${currentTrip.id}/join?invite=${currentTrip.id}`}
-          </div>
-
-          <Button variant="outline" className="w-full gap-2" onClick={handleCopyInviteLink}>
-            <Copy className="h-4 w-4" />
-            {copied ? '已複製連結' : '複製邀請連結'}
-          </Button>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardContent className="space-y-3 pt-5">
-          <input
-            className="h-12 w-full rounded-2xl border border-border bg-white px-4 outline-none placeholder:text-muted-foreground focus:border-primary"
-            placeholder="例如：Mina"
-            value={draftName}
-            onChange={(event) => setDraftName(event.target.value)}
-          />
-          <Button className="w-full gap-2" onClick={handleAddMember} disabled={!draftName.trim()}>
-            <Plus className="h-4 w-4" />
-            新增成員
-          </Button>
+          {inviteToken ? (
+            <>
+              <div className="rounded-2xl border border-border bg-white px-4 py-3 text-sm text-muted-foreground break-all">
+                {`${window.location.origin}/invitations/${inviteToken}`}
+              </div>
+              <Button variant="outline" className="w-full gap-2" onClick={handleCopyInviteLink}>
+                <Copy className="h-4 w-4" />
+                {copied ? '已複製連結' : '複製邀請連結'}
+              </Button>
+            </>
+          ) : (
+            <Button className="w-full" onClick={handleCreateInviteLink}>
+              產生邀請連結
+            </Button>
+          )}
         </CardContent>
       </Card>
 
@@ -116,28 +115,28 @@ export function MembersPage() {
       </div>
 
       <div className="space-y-3">
-        {currentTrip.members.length === 0 ? (
-          <EmptyState title="尚未加入旅伴" description="先加入至少一位成員，之後才能記錄支出或存入公積金。" />
-        ) : currentTrip.members.map((member) => {
+        {trip.memberships.length === 0 ? (
+          <EmptyState title="尚未加入旅伴" description="產生邀請連結分享給朋友，讓他們加入旅程。" />
+        ) : trip.memberships.map((member) => {
           const locked = hasExpenseRecord(member.id)
 
           return (
             <Card key={member.id}>
               <CardContent className="flex items-center justify-between gap-3 pt-5">
                 <div className="flex items-center gap-3">
-                  <div className={`flex h-12 w-12 items-center justify-center rounded-full text-sm font-semibold ${member.color}`}>
-                    {member.avatar}
+                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#D5E9EF] text-sm font-semibold">
+                    {member.user.name.charAt(0).toUpperCase()}
                   </div>
                   <div>
-                    <p className="font-medium text-foreground">{member.name}</p>
+                    <p className="font-medium text-foreground">{member.user.name}</p>
                     <p className="text-sm text-muted-foreground">
-                      {locked ? '已有支出紀錄，不可刪除' : '旅伴'}
+                      {locked ? '已有支出紀錄，不可刪除' : member.user.email}
                     </p>
                   </div>
                 </div>
                 <button
                   type="button"
-                  onClick={() => deleteMember(currentTrip.id, member.id)}
+                  onClick={() => handleDeleteMember(member.id)}
                   disabled={locked}
                   className={`inline-flex h-10 w-10 items-center justify-center rounded-full border ${
                     locked

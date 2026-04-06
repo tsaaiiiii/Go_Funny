@@ -1,55 +1,54 @@
 import { CalendarRange, Compass, Sparkles, Trash2 } from 'lucide-react'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
+import { useQueryClient } from '@tanstack/react-query'
 
-import { useAppData } from '@/lib/app-data'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { MobileHeader } from '@/components/layout/mobile-header'
 import { SectionHeading } from '@/components/ui/section-heading'
-import type { TripMode } from '@/types'
+import { useGetTripById, useCreateTrip, useUpdateTrip, useDeleteTrip } from '@/api/generated/trips/trips'
+import type { TripMode } from '@/api/generated/model'
 
 export function TripCreatePage() {
   const { tripId } = useParams()
   const navigate = useNavigate()
-  const { createTrip, deleteTrip, getTripById, updateTrip } = useAppData()
-  const editingTrip = useMemo(() => getTripById(tripId), [getTripById, tripId])
+  const queryClient = useQueryClient()
+  const { data: tripResponse } = useGetTripById(tripId!, { query: { enabled: !!tripId } })
+  const editingTrip = tripResponse?.data
   const isEditing = Boolean(tripId && editingTrip)
+
+  const createTripMutation = useCreateTrip()
+  const updateTripMutation = useUpdateTrip()
+  const deleteTripMutation = useDeleteTrip()
 
   const [title, setTitle] = useState(editingTrip?.title ?? '')
   const [location, setLocation] = useState(editingTrip?.location ?? '')
-  const [startDate, setStartDate] = useState(editingTrip?.startDate ?? '2025-03-18')
-  const [endDate, setEndDate] = useState(editingTrip?.endDate ?? '2025-03-24')
+  const [startDate, setStartDate] = useState(editingTrip?.startDate ? new Date(editingTrip.startDate).toISOString().slice(0, 10) : '2025-03-18')
+  const [endDate, setEndDate] = useState(editingTrip?.endDate ? new Date(editingTrip.endDate).toISOString().slice(0, 10) : '2025-03-24')
   const [mode, setMode] = useState<TripMode>(editingTrip?.mode ?? 'expense')
   const [saveFeedback, setSaveFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
   const modeChanged = Boolean(isEditing && editingTrip && mode !== editingTrip.mode)
 
   useEffect(() => {
-    setTitle(editingTrip?.title ?? '')
-    setLocation(editingTrip?.location ?? '')
-    setStartDate(editingTrip?.startDate ?? '2025-03-18')
-    setEndDate(editingTrip?.endDate ?? '2025-03-24')
-    setMode(editingTrip?.mode ?? 'expense')
+    if (!editingTrip) return
+    setTitle(editingTrip.title)
+    setLocation(editingTrip.location ?? '')
+    setStartDate(new Date(editingTrip.startDate).toISOString().slice(0, 10))
+    setEndDate(new Date(editingTrip.endDate).toISOString().slice(0, 10))
+    setMode(editingTrip.mode)
   }, [editingTrip])
 
   useEffect(() => {
-    if (!saveFeedback) {
-      return
-    }
-
-    const timeoutId = window.setTimeout(() => {
-      setSaveFeedback(null)
-    }, 2000)
-
-    return () => {
-      window.clearTimeout(timeoutId)
-    }
+    if (!saveFeedback) return
+    const timeoutId = window.setTimeout(() => setSaveFeedback(null), 2000)
+    return () => window.clearTimeout(timeoutId)
   }, [saveFeedback])
 
   const submitLabel = isEditing ? '儲存變更' : '建立旅程'
 
-  function handleSubmit() {
+  async function handleSubmit() {
     if (!title.trim()) {
       setSaveFeedback({ type: 'error', message: '儲存失敗：請先輸入旅程名稱。' })
       return
@@ -64,13 +63,17 @@ export function TripCreatePage() {
           return
         }
 
-        updateTrip(editingTrip.id, {
-          title: title.trim(),
-          location: location.trim(),
-          startDate,
-          endDate,
-          mode,
+        await updateTripMutation.mutateAsync({
+          tripId: editingTrip.id,
+          data: {
+            title: title.trim(),
+            location: location.trim() || undefined,
+            startDate,
+            endDate,
+            mode,
+          },
         })
+        await queryClient.invalidateQueries({ queryKey: ['/go-funny-api/trips'] })
         setSaveFeedback({ type: 'success', message: '儲存成功。' })
       } catch {
         setSaveFeedback({ type: 'error', message: '儲存失敗，請稍後再試。' })
@@ -78,24 +81,34 @@ export function TripCreatePage() {
       return
     }
 
-    const nextTrip = createTrip({
-      title: title.trim(),
-      location: location.trim(),
-      startDate,
-      endDate,
-      mode,
-    })
-    setSaveFeedback(null)
-    navigate(`/trip/${nextTrip.id}/members`)
+    try {
+      const result = await createTripMutation.mutateAsync({
+        data: {
+          title: title.trim(),
+          location: location.trim() || undefined,
+          startDate,
+          endDate,
+          mode,
+        },
+      })
+      await queryClient.invalidateQueries({ queryKey: ['/go-funny-api/trips'] })
+      setSaveFeedback(null)
+      navigate(`/trip/${result.data.id}/members`)
+    } catch {
+      setSaveFeedback({ type: 'error', message: '建立失敗，請稍後再試。' })
+    }
   }
 
-  function handleDelete() {
-    if (!editingTrip) {
-      return
-    }
+  async function handleDelete() {
+    if (!editingTrip) return
 
-    deleteTrip(editingTrip.id)
-    navigate('/')
+    try {
+      await deleteTripMutation.mutateAsync({ tripId: editingTrip.id })
+      await queryClient.invalidateQueries({ queryKey: ['/go-funny-api/trips'] })
+      navigate('/')
+    } catch {
+      setSaveFeedback({ type: 'error', message: '刪除失敗，請稍後再試。' })
+    }
   }
 
   return (
@@ -177,7 +190,7 @@ export function TripCreatePage() {
             <p className="font-medium">建立後建議下一步</p>
           </div>
           <p className="text-sm leading-6 text-muted-foreground">
-            先新增旅伴，再開始記錄支出。如果你選擇公積金模式，建立完成後可先新增第一筆共同資金。
+            先邀請旅伴加入，再開始記錄支出。如果你選擇公積金模式，建立完成後可先新增第一筆共同資金。
           </p>
         </CardContent>
       </Card>

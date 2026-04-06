@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { SectionHeading } from '@/components/ui/section-heading'
-import { useAppData } from '@/lib/app-data'
+import { useGetTrips } from '@/api/generated/trips/trips'
 import { authClient } from '@/lib/auth-client'
 import { formatCurrency } from '@/lib/currency'
 
@@ -22,7 +22,8 @@ interface MockSession {
 
 export function TripsPage() {
   const { data: session } = authClient.useSession()
-  const { trips } = useAppData()
+  const { data: tripsResponse } = useGetTrips()
+  const trips = tripsResponse?.data ?? []
   const [mockSession, setMockSession] = useState<MockSession | null>(null)
   const [profileModalOpen, setProfileModalOpen] = useState(false)
   const [draftName, setDraftName] = useState('')
@@ -31,7 +32,7 @@ export function TripsPage() {
     () =>
       trips
         .slice()
-        .sort((a, b) => b.endDate.localeCompare(a.endDate) || b.startDate.localeCompare(a.startDate)),
+        .sort((a, b) => new Date(b.endDate).getTime() - new Date(a.endDate).getTime() || new Date(b.startDate).getTime() - new Date(a.startDate).getTime()),
     [trips],
   )
   const totalExpense = trips.reduce(
@@ -187,7 +188,7 @@ export function TripsPage() {
                       </div>
                       <div>
                         <h2 className="text-lg font-semibold">{trip.title}</h2>
-                        <p className="mt-1 text-sm text-muted-foreground">{trip.startDate} — {trip.endDate}</p>
+                        <p className="mt-1 text-sm text-muted-foreground">{new Date(trip.startDate).toLocaleDateString()} — {new Date(trip.endDate).toLocaleDateString()}</p>
                       </div>
                     </div>
                     <Link
@@ -205,7 +206,7 @@ export function TripsPage() {
                           <Users className="h-4 w-4" />
                           成員
                         </div>
-                        <p className="font-semibold">{trip.members.length} 位</p>
+                        <p className="font-semibold">{trip.memberships.length} 位</p>
                       </div>
                       <div className="rounded-2xl bg-[#F8FBF8] p-3">
                         <div className="mb-1 flex items-center gap-1 text-muted-foreground">

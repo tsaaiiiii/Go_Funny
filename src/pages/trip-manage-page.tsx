@@ -5,12 +5,12 @@ import { MobileHeader } from '@/components/layout/mobile-header'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
 import { SectionHeading } from '@/components/ui/section-heading'
-import { useAppData } from '@/lib/app-data'
+import { useGetTripById } from '@/api/generated/trips/trips'
 
 export function TripManagePage() {
   const { tripId } = useParams()
-  const { getTripById } = useAppData()
-  const trip = getTripById(tripId)
+  const { data: tripResponse } = useGetTripById(tripId!)
+  const trip = tripResponse?.data
 
   if (!trip) {
     return null
@@ -59,7 +59,7 @@ export function TripManagePage() {
               </div>
               <div>
                 <p className="font-medium text-foreground">管理成員</p>
-                <p className="text-sm text-muted-foreground">新增或移除旅伴，維持分帳名單正確。</p>
+                <p className="text-sm text-muted-foreground">邀請旅伴加入，或移除成員。</p>
               </div>
             </CardContent>
           </Card>

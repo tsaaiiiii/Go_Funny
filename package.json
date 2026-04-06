@@ -11,6 +11,7 @@
     "generate:api": "orval --config ./orval.config.ts"
   },
   "dependencies": {
+    "@tanstack/react-query": "^5.96.2",
     "better-auth": "latest",
     "clsx": "^2.1.1",
     "lucide-react": "^0.511.0",
@@ -25,6 +26,7 @@
     "@types/react-dom": "^18.3.1",
     "@vitejs/plugin-react": "^4.3.3",
     "autoprefixer": "^10.4.20",
+    "orval": "^8.6.2",
     "postcss": "^8.4.49",
     "tailwindcss": "^3.4.15",
     "typescript": "^5.6.3",

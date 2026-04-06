@@ -1,6 +1,7 @@
 import { ChevronDown, CircleDollarSign, Plus } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
+import { useQueryClient } from '@tanstack/react-query'
 
 import { MobileHeader } from '@/components/layout/mobile-header'
 import { Badge } from '@/components/ui/badge'
@@ -8,8 +9,8 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { EmptyState } from '@/components/ui/empty-state'
 import { SectionHeading } from '@/components/ui/section-heading'
-import { useAppData } from '@/lib/app-data'
-import { authClient } from '@/lib/auth-client'
+import { useGetTrips, useGetTripById } from '@/api/generated/trips/trips'
+import { useCreateTripExpense } from '@/api/generated/expenses/expenses'
 import { formatCurrency } from '@/lib/currency'
 
 function getTodayInputValue() {
@@ -21,112 +22,67 @@ function getTodayInputValue() {
 export function ExpenseCreatePage() {
   const { tripId } = useParams()
   const navigate = useNavigate()
-  const { data: session } = authClient.useSession()
-  const { addExpense, addMember, getTripById, trips } = useAppData()
-  const routeTrip = getTripById(tripId)
-  const [selectedTripId, setSelectedTripId] = useState(routeTrip?.id ?? trips[0]?.id ?? '')
-  const trip = getTripById(selectedTripId) ?? routeTrip
+  const queryClient = useQueryClient()
+  const { data: tripsResponse } = useGetTrips()
+  const trips = tripsResponse?.data ?? []
+  const [selectedTripId, setSelectedTripId] = useState(tripId ?? '')
+  const { data: tripResponse } = useGetTripById(selectedTripId, { query: { enabled: !!selectedTripId } })
+  const trip = tripResponse?.data
+  const createExpenseMutation = useCreateTripExpense()
+
   const [title, setTitle] = useState('河原町晚餐')
   const [amount, setAmount] = useState('2400')
   const [note, setNote] = useState('')
   const [date, setDate] = useState(getTodayInputValue)
-  const [payerId, setPayerId] = useState(trip?.members[0]?.id ?? '')
+  const [payerMembershipId, setPayerMembershipId] = useState(trip?.memberships[0]?.id ?? '')
   const [splitMode, setSplitMode] = useState<'equal' | 'custom' | null>('equal')
-  const [selectedMembers, setSelectedMembers] = useState(trip?.members.map((member) => member.id) ?? [])
+  const [selectedMembers, setSelectedMembers] = useState<string[]>(trip?.memberships.map((m) => m.id) ?? [])
   const [customAmounts, setCustomAmounts] = useState<Record<string, string>>({})
-  const [mockUserName, setMockUserName] = useState('')
 
   if (!trip) {
     return null
   }
 
   useEffect(() => {
-    if (routeTrip?.id) {
-      setSelectedTripId(routeTrip.id)
-      return
-    }
-
-    if (!selectedTripId && trips[0]?.id) {
-      setSelectedTripId(trips[0].id)
-    }
-  }, [routeTrip?.id, selectedTripId, trips])
-
-  const currentUserName = session?.user?.name?.trim() || mockUserName.trim()
-  const hasCurrentUserMember = Boolean(
-    currentUserName && trip.members.some((member) => member.name === currentUserName),
-  )
+    if (tripId) setSelectedTripId(tripId)
+  }, [tripId])
 
   useEffect(() => {
-    try {
-      const stored = window.localStorage.getItem('mock-auth-session')
-      if (!stored) {
-        return
-      }
-
-      const parsed = JSON.parse(stored) as { user?: { name?: string } }
-      if (parsed.user?.name) {
-        setMockUserName(parsed.user.name)
-      }
-    } catch {
-      setMockUserName('')
-    }
-  }, [])
-
-  useEffect(() => {
-    if (!currentUserName || hasCurrentUserMember) {
-      return
-    }
-
-    addMember(trip.id, currentUserName)
-  }, [addMember, currentUserName, hasCurrentUserMember, trip.id])
-
-  useEffect(() => {
-    setPayerId(trip.members[0]?.id ?? '')
-    setSelectedMembers(trip.members.map((member) => member.id))
+    setPayerMembershipId(trip.memberships[0]?.id ?? '')
+    setSelectedMembers(trip.memberships.map((m) => m.id))
     setCustomAmounts({})
     setSplitMode('equal')
-  }, [trip.id, trip.members])
+  }, [trip.id, trip.memberships])
 
-  const allMemberIds = useMemo(() => trip.members.map((member) => member.id), [trip.members])
+  const allMemberIds = useMemo(() => trip.memberships.map((m) => m.id), [trip.memberships])
   const parsedAmount = Number(amount) || 0
   const averageAmount = useMemo(() => Math.round(parsedAmount / Math.max(selectedMembers.length, 1)), [parsedAmount, selectedMembers.length])
   const splitType =
     splitMode === 'custom'
       ? 'custom'
-      : selectedMembers.length === trip.members.length
+      : selectedMembers.length === trip.memberships.length
         ? 'equal_all'
         : 'equal_selected'
-  const customTotal = selectedMembers.reduce((sum, memberId) => sum + (Number(customAmounts[memberId]) || 0), 0)
+  const customTotal = selectedMembers.reduce((sum, id) => sum + (Number(customAmounts[id]) || 0), 0)
   const customSplitValid = splitMode !== 'custom' || (selectedMembers.length > 0 && customTotal === parsedAmount)
 
-  function handleSubmit() {
-    if (!trip) {
-      return
-    }
+  async function handleSubmit() {
+    if (!trip) return
+    if (!title.trim() || parsedAmount <= 0 || selectedMembers.length === 0 || !customSplitValid) return
 
-    if (!title.trim() || parsedAmount <= 0 || selectedMembers.length === 0 || !customSplitValid) {
-      return
-    }
-
-    const participants = selectedMembers
-
-    addExpense(trip.id, {
-      title: title.trim(),
-      amount: parsedAmount,
-      date,
-      splitType,
-      participants,
-      payerId: trip.mode === 'expense' ? payerId : undefined,
-      note: note.trim() || undefined,
-      splits:
-        splitMode === 'custom'
-          ? participants.map((memberId) => ({
-              memberId,
-              amount: Number(customAmounts[memberId]) || 0,
-            }))
-          : undefined,
+    await createExpenseMutation.mutateAsync({
+      tripId: trip.id,
+      data: {
+        title: title.trim(),
+        amount: parsedAmount,
+        date,
+        splitType: splitType as 'equal_all' | 'equal_selected' | 'custom',
+        payerMembershipId: trip.mode === 'expense' ? payerMembershipId : undefined,
+        note: note.trim() || undefined,
+      },
     })
 
+    await queryClient.invalidateQueries({ queryKey: [`/go-funny-api/trips/${trip.id}`] })
     navigate(`/trip/${trip.id}`)
   }
 
@@ -182,14 +138,14 @@ export function ExpenseCreatePage() {
             <div className="space-y-2">
               <label className="text-sm font-medium text-foreground">付款人</label>
               <div className="grid grid-cols-3 gap-2">
-                {trip.members.map((member) => (
+                {trip.memberships.map((member) => (
                   <button
                     key={member.id}
-                    className={`rounded-2xl border px-3 py-3 text-sm font-medium ${payerId === member.id ? 'border-primary bg-[#EDF7F9] text-primary' : 'border-border bg-white text-foreground'}`}
+                    className={`rounded-2xl border px-3 py-3 text-sm font-medium ${payerMembershipId === member.id ? 'border-primary bg-[#EDF7F9] text-primary' : 'border-border bg-white text-foreground'}`}
                     type="button"
-                    onClick={() => setPayerId(member.id)}
+                    onClick={() => setPayerMembershipId(member.id)}
                   >
-                    {member.name}
+                    {member.user.name}
                   </button>
                 ))}
               </div>
@@ -204,8 +160,16 @@ export function ExpenseCreatePage() {
 
       <SectionHeading title="分攤方式" />
 
-      {trip.members.length === 0 ? (
-        <EmptyState title="還沒有成員" description="請先回到旅程詳情新增成員，才能建立支出紀錄。" />
+      {trip.memberships.length === 0 ? (
+        <EmptyState
+          title="還沒有成員"
+          description="請先回到旅程詳情邀請成員加入，才能建立支出紀錄。"
+          action={
+            <Link to={`/trip/${tripId}/members`} className="inline-flex">
+              <Button>前往成員管理</Button>
+            </Link>
+          }
+        />
       ) : (
         <>
 
@@ -245,7 +209,7 @@ export function ExpenseCreatePage() {
           </div>
 
           <div className="grid grid-cols-2 gap-3">
-            {trip.members.map((member) => {
+            {trip.memberships.map((member) => {
               const active = selectedMembers.includes(member.id)
 
               return (
@@ -261,11 +225,7 @@ export function ExpenseCreatePage() {
                           return nextDraft
                         })
                         const next = current.filter((item) => item !== member.id)
-                        if (splitMode === 'custom') {
-                          setSplitMode('custom')
-                        } else {
-                          setSplitMode(next.length === trip.members.length ? 'equal' : null)
-                        }
+                        if (splitMode !== 'custom') setSplitMode(next.length === trip.memberships.length ? 'equal' : null)
                         return next
                       }
 
@@ -274,22 +234,18 @@ export function ExpenseCreatePage() {
                         [member.id]: draft[member.id] ?? `${averageAmount}`,
                       }))
                       const next = [...current, member.id]
-                      if (splitMode === 'custom') {
-                        setSplitMode('custom')
-                      } else {
-                        setSplitMode(next.length === trip.members.length ? 'equal' : null)
-                      }
+                      if (splitMode !== 'custom') setSplitMode(next.length === trip.memberships.length ? 'equal' : null)
                       return next
                     })
                   }
                   className={`rounded-2xl border px-4 py-4 text-left ${active ? 'border-secondary bg-[#F3F8F4]' : 'border-border bg-white'}`}
                 >
                   <div className="flex items-center gap-3">
-                    <div className={`flex h-10 w-10 items-center justify-center rounded-full text-sm font-semibold ${member.color}`}>
-                      {member.avatar}
+                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#D5E9EF] text-sm font-semibold">
+                      {member.user.name.charAt(0).toUpperCase()}
                     </div>
                     <div>
-                      <p className="font-medium">{member.name}</p>
+                      <p className="font-medium">{member.user.name}</p>
                       <p className="text-xs text-muted-foreground">{active ? '已加入分攤' : '未加入'}</p>
                     </div>
                   </div>
@@ -308,27 +264,24 @@ export function ExpenseCreatePage() {
                   </span>
                 </div>
                 <div className="space-y-2">
-                  {selectedMembers.map((memberId) => {
-                    const member = trip.members.find((item) => item.id === memberId)
+                  {selectedMembers.map((membershipId) => {
+                    const member = trip.memberships.find((item) => item.id === membershipId)
                     return (
-                      <div key={memberId} className="flex items-center gap-3 rounded-2xl bg-white px-3 py-3">
-                        <div className={`flex h-9 w-9 items-center justify-center rounded-full text-sm font-semibold ${member?.color}`}>
-                          {member?.avatar}
+                      <div key={membershipId} className="flex items-center gap-3 rounded-2xl bg-white px-3 py-3">
+                        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#D5E9EF] text-sm font-semibold">
+                          {member?.user.name.charAt(0).toUpperCase()}
                         </div>
-                        <span className="min-w-0 flex-1 text-sm font-medium text-foreground">{member?.name}</span>
+                        <span className="min-w-0 flex-1 text-sm font-medium text-foreground">{member?.user.name}</span>
                         <input
                           className="w-24 rounded-xl border border-border bg-[#FAFCFC] px-3 py-2 text-right text-sm outline-none focus:border-primary"
                           inputMode="numeric"
-                          value={customAmounts[memberId] ?? ''}
+                          value={customAmounts[membershipId] ?? ''}
                           onChange={(event) => {
                             const nextValue = event.target.value
-                            if (!/^\d*$/.test(nextValue)) {
-                              return
-                            }
-
+                            if (!/^\d*$/.test(nextValue)) return
                             setCustomAmounts((current) => ({
                               ...current,
-                              [memberId]: nextValue,
+                              [membershipId]: nextValue,
                             }))
                           }}
                         />
