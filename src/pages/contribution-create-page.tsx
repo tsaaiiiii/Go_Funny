@@ -7,48 +7,53 @@ import { MobileHeader } from '@/components/layout/mobile-header'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
+import { DatePickerField } from '@/components/ui/date-picker-field'
 import { EmptyState } from '@/components/ui/empty-state'
 import { SectionHeading } from '@/components/ui/section-heading'
 import { useGetTripById } from '@/api/generated/trips/trips'
 import { useCreateTripContribution } from '@/api/generated/contributions/contributions'
+import { hasStatus } from '@/lib/api-response'
 import { formatCurrency } from '@/lib/currency'
+import { getTodayInputValue } from '@/lib/date'
 
 export function ContributionCreatePage() {
   const { tripId } = useParams()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const { data: tripResponse } = useGetTripById(tripId!)
-  const trip = tripResponse?.data
+  const trip = hasStatus(tripResponse, 200) ? tripResponse.data : null
   const createContributionMutation = useCreateTripContribution()
   const [selectedMembershipId, setSelectedMembershipId] = useState(trip?.memberships[0]?.id ?? '')
   const [amount, setAmount] = useState('3000')
-  const [date, setDate] = useState('2025-06-11')
+  const [date, setDate] = useState(getTodayInputValue)
 
   if (!trip) {
     return null
   }
 
-  const totalContribution = trip.contributions.reduce((sum, item) => sum + item.amount, 0)
+  const currentTrip = trip
+
+  const totalContribution = currentTrip.contributions.reduce((sum, item) => sum + item.amount, 0)
 
   async function handleSubmit() {
     const parsedAmount = Number(amount)
     if (!selectedMembershipId || Number.isNaN(parsedAmount) || parsedAmount <= 0) return
 
     await createContributionMutation.mutateAsync({
-      tripId: trip!.id,
+      tripId: currentTrip.id,
       data: {
         membershipId: selectedMembershipId,
         amount: parsedAmount,
         date,
       },
     })
-    await queryClient.invalidateQueries({ queryKey: [`/go-funny-api/trips/${trip!.id}`] })
-    navigate(`/trip/${trip!.id}`)
+    await queryClient.invalidateQueries({ queryKey: [`/trips/${currentTrip.id}`] })
+    navigate(`/trip/${currentTrip.id}`)
   }
 
   return (
     <div className="space-y-5 pb-4">
-      <MobileHeader title="新增公積金" backTo={`/trip/${trip.id}/manage`} />
+      <MobileHeader title="新增公積金" backTo={`/trip/${currentTrip.id}/manage`} />
 
       <Card className="border-none bg-[linear-gradient(180deg,rgba(255,253,252,0.96),rgba(243,248,244,0.92))] shadow-float">
         <CardContent className="space-y-4 pt-5">
@@ -67,9 +72,9 @@ export function ContributionCreatePage() {
 
       <SectionHeading title="存入資訊" />
 
-      {trip.mode !== 'pool' ? (
+      {currentTrip.mode !== 'pool' ? (
         <EmptyState title="這趟旅程不是公積金模式" description="若要記錄共同池存入，請先把旅程模式調整為公積金。" />
-      ) : trip.memberships.length === 0 ? (
+      ) : currentTrip.memberships.length === 0 ? (
         <EmptyState
           title="還沒有成員"
           description="請先回到成員管理頁邀請旅伴加入，才能建立公積金存入紀錄。"
@@ -85,7 +90,7 @@ export function ContributionCreatePage() {
             <div className="space-y-2">
               <label className="text-sm font-medium text-foreground">成員</label>
               <div className="grid grid-cols-2 gap-3">
-                {trip.memberships.map((member) => {
+                {currentTrip.memberships.map((member) => {
                   const active = selectedMembershipId === member.id
                   return (
                     <button
@@ -119,7 +124,7 @@ export function ContributionCreatePage() {
 
             <div className="space-y-2">
               <label className="text-sm font-medium text-foreground">日期</label>
-              <input type="date" className="h-12 w-full rounded-2xl border border-border bg-white px-4 outline-none focus:border-secondary" value={date} onChange={(event) => setDate(event.target.value)} />
+              <DatePickerField value={date} onChange={setDate} accent="secondary" helperText="選擇存入共同池的日期" />
             </div>
           </CardContent>
         </Card>

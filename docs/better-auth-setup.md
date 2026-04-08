@@ -21,19 +21,30 @@
 
 建議提供：
 
+- `VITE_PROXY_TARGET`
+- `VITE_API_BASE_URL`
 - `VITE_BETTER_AUTH_URL`
 
 例如：
 
 ```env
-VITE_BETTER_AUTH_URL=http://localhost:3000
+VITE_PROXY_TARGET=https://go-funny-backend.onrender.com
+VITE_API_BASE_URL=
+VITE_BETTER_AUTH_URL=
+```
+
+正式環境建議使用 `.env.production`：
+
+```env
+VITE_API_BASE_URL=https://go-funny-backend.onrender.com
+VITE_BETTER_AUTH_URL=https://go-funny-backend.onrender.com
 ```
 
 ## 後端建議設定方向
 
 ### 1. 建立 Better Auth server
 
-後端需建立 Better Auth instance，並提供 auth endpoint。
+後端需建立 Better Auth instance，並提供 `/api/auth/*` endpoint。
 
 ### 2. Google provider
 
@@ -59,6 +70,14 @@ VITE_BETTER_AUTH_URL=http://localhost:3000
 - 導回該 trip
 
 ## 目前前端呼叫方式
+
+目前前端預期使用以下路徑：
+
+- `/api/auth/get-session`
+- `/api/auth/sign-in/email`
+- `/api/auth/sign-up/email`
+- `/api/auth/sign-out`
+- `/api/auth/callback/google`
 
 ### Google 登入 / 註冊
 

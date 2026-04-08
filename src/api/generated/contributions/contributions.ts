@@ -29,6 +29,7 @@ import type {
   CreateContributionRequest,
   NotFoundResponse
 } from '../model';
+import { buildApiUrl } from '@/lib/api-base-url';
 
 
 
@@ -61,7 +62,7 @@ export const getGetTripContributionsUrl = (tripId: string,) => {
 
 
 
-  return `/go-funny-api/contributions/${tripId}`
+  return buildApiUrl(`/contributions/${tripId}`)
 }
 
 export const getTripContributions = async (tripId: string, options?: RequestInit): Promise<getTripContributionsResponse> => {
@@ -87,7 +88,7 @@ export const getTripContributions = async (tripId: string, options?: RequestInit
 
 export const getGetTripContributionsQueryKey = (tripId: string,) => {
     return [
-    `/go-funny-api/contributions/${tripId}`
+    `/contributions/${tripId}`
     ] as const;
     }
 
@@ -189,7 +190,7 @@ export const getCreateTripContributionUrl = (tripId: string,) => {
 
 
 
-  return `/go-funny-api/contributions/${tripId}`
+  return buildApiUrl(`/contributions/${tripId}`)
 }
 
 export const createTripContribution = async (tripId: string,

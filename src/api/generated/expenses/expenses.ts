@@ -29,6 +29,7 @@ import type {
   Expense,
   NotFoundResponse
 } from '../model';
+import { buildApiUrl } from '@/lib/api-base-url';
 
 
 
@@ -61,7 +62,7 @@ export const getGetTripExpensesUrl = (tripId: string,) => {
 
 
 
-  return `/go-funny-api/expenses/${tripId}`
+  return buildApiUrl(`/expenses/${tripId}`)
 }
 
 export const getTripExpenses = async (tripId: string, options?: RequestInit): Promise<getTripExpensesResponse> => {
@@ -87,7 +88,7 @@ export const getTripExpenses = async (tripId: string, options?: RequestInit): Pr
 
 export const getGetTripExpensesQueryKey = (tripId: string,) => {
     return [
-    `/go-funny-api/expenses/${tripId}`
+    `/expenses/${tripId}`
     ] as const;
     }
 
@@ -189,7 +190,7 @@ export const getCreateTripExpenseUrl = (tripId: string,) => {
 
 
 
-  return `/go-funny-api/expenses/${tripId}`
+  return buildApiUrl(`/expenses/${tripId}`)
 }
 
 export const createTripExpense = async (tripId: string,
@@ -286,7 +287,7 @@ export const getDeleteTripExpenseUrl = (tripId: string,
 
 
 
-  return `/go-funny-api/expenses/${tripId}/${expenseId}`
+  return buildApiUrl(`/expenses/${tripId}/${expenseId}`)
 }
 
 export const deleteTripExpense = async (tripId: string,

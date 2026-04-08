@@ -32,6 +32,7 @@ import type {
   Member,
   NotFoundResponse
 } from '../model';
+import { buildApiUrl } from '@/lib/api-base-url';
 
 
 
@@ -69,7 +70,7 @@ export const getCreateTripInvitationUrl = (tripId: string,) => {
 
 
 
-  return `/go-funny-api/invitations/${tripId}`
+  return buildApiUrl(`/invitations/${tripId}`)
 }
 
 export const createTripInvitation = async (tripId: string,
@@ -165,7 +166,7 @@ export const getGetInvitationByTokenUrl = (token: string,) => {
 
 
 
-  return `/go-funny-api/invitations/${token}`
+  return buildApiUrl(`/invitations/${token}`)
 }
 
 export const getInvitationByToken = async (token: string, options?: RequestInit): Promise<getInvitationByTokenResponse> => {
@@ -191,7 +192,7 @@ export const getInvitationByToken = async (token: string, options?: RequestInit)
 
 export const getGetInvitationByTokenQueryKey = (token: string,) => {
     return [
-    `/go-funny-api/invitations/${token}`
+    `/invitations/${token}`
     ] as const;
     }
 
@@ -293,7 +294,7 @@ export const getAcceptInvitationUrl = (token: string,) => {
 
 
 
-  return `/go-funny-api/invitations/${token}/accept`
+  return buildApiUrl(`/invitations/${token}/accept`)
 }
 
 export const acceptInvitation = async (token: string,

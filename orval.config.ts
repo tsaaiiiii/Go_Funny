@@ -12,7 +12,7 @@ export default defineConfig({
       client: 'react-query',
       clean: true,
       prettier: true,
-      baseUrl: '/go-funny-api',
+      baseUrl: '',
       override: {
         query: {
           useQuery: true,

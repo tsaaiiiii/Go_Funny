@@ -27,6 +27,7 @@ import type {
   Member,
   NotFoundResponse
 } from '../model';
+import { buildApiUrl } from '@/lib/api-base-url';
 
 
 
@@ -59,7 +60,7 @@ export const getGetTripMembersUrl = (tripId: string,) => {
 
 
 
-  return `/go-funny-api/members/${tripId}`
+  return buildApiUrl(`/members/${tripId}`)
 }
 
 export const getTripMembers = async (tripId: string, options?: RequestInit): Promise<getTripMembersResponse> => {
@@ -85,7 +86,7 @@ export const getTripMembers = async (tripId: string, options?: RequestInit): Pro
 
 export const getGetTripMembersQueryKey = (tripId: string,) => {
     return [
-    `/go-funny-api/members/${tripId}`
+    `/members/${tripId}`
     ] as const;
     }
 
@@ -183,7 +184,7 @@ export const getDeleteTripMemberUrl = (tripId: string,
 
 
 
-  return `/go-funny-api/members/${tripId}/${memberId}`
+  return buildApiUrl(`/members/${tripId}/${memberId}`)
 }
 
 export const deleteTripMember = async (tripId: string,

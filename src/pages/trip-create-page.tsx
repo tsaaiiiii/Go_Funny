@@ -1,22 +1,61 @@
-import { CalendarRange, Compass, Sparkles, Trash2 } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { ArrowRight, CalendarRange, Compass, Sparkles, Trash2 } from 'lucide-react'
+import { format, parseISO } from 'date-fns'
+import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
+import type { DateRange } from 'react-day-picker'
 import { useQueryClient } from '@tanstack/react-query'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Calendar } from '@/components/ui/calendar'
 import { Card, CardContent } from '@/components/ui/card'
 import { MobileHeader } from '@/components/layout/mobile-header'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { SectionHeading } from '@/components/ui/section-heading'
 import { useGetTripById, useCreateTrip, useUpdateTrip, useDeleteTrip } from '@/api/generated/trips/trips'
+import { hasStatus } from '@/lib/api-response'
+import { getTodayInputValue } from '@/lib/date'
 import type { TripMode } from '@/api/generated/model'
+
+const formatDateChip = (value: string) => {
+  const date = new Date(`${value}T00:00:00`)
+
+  return new Intl.DateTimeFormat('zh-TW', {
+    month: 'long',
+    day: 'numeric',
+    weekday: 'short',
+  }).format(date)
+}
+
+const formatDateRangeSummary = (startDate: string, endDate: string) => {
+  const start = new Date(`${startDate}T00:00:00`)
+  const end = new Date(`${endDate}T00:00:00`)
+  const startLabel = new Intl.DateTimeFormat('zh-TW', {
+    month: 'numeric',
+    day: 'numeric',
+  }).format(start)
+  const endLabel = new Intl.DateTimeFormat('zh-TW', {
+    month: 'numeric',
+    day: 'numeric',
+  }).format(end)
+
+  return `${startLabel} - ${endLabel}`
+}
+
+const getTripLengthLabel = (startDate: string, endDate: string) => {
+  const start = new Date(`${startDate}T00:00:00`)
+  const end = new Date(`${endDate}T00:00:00`)
+  const diffDays = Math.floor((end.getTime() - start.getTime()) / 86_400_000) + 1
+
+  return `${Math.max(diffDays, 1)} 天`
+}
 
 export function TripCreatePage() {
   const { tripId } = useParams()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const { data: tripResponse } = useGetTripById(tripId!, { query: { enabled: !!tripId } })
-  const editingTrip = tripResponse?.data
+  const editingTrip = hasStatus(tripResponse, 200) ? tripResponse.data : null
   const isEditing = Boolean(tripId && editingTrip)
 
   const createTripMutation = useCreateTrip()
@@ -25,10 +64,13 @@ export function TripCreatePage() {
 
   const [title, setTitle] = useState(editingTrip?.title ?? '')
   const [location, setLocation] = useState(editingTrip?.location ?? '')
-  const [startDate, setStartDate] = useState(editingTrip?.startDate ? new Date(editingTrip.startDate).toISOString().slice(0, 10) : '2025-03-18')
-  const [endDate, setEndDate] = useState(editingTrip?.endDate ? new Date(editingTrip.endDate).toISOString().slice(0, 10) : '2025-03-24')
+  const [startDate, setStartDate] = useState(editingTrip?.startDate ? new Date(editingTrip.startDate).toISOString().slice(0, 10) : getTodayInputValue())
+  const [endDate, setEndDate] = useState(editingTrip?.endDate ? new Date(editingTrip.endDate).toISOString().slice(0, 10) : getTodayInputValue())
   const [mode, setMode] = useState<TripMode>(editingTrip?.mode ?? 'expense')
   const [saveFeedback, setSaveFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
+  const [dateRangeOpen, setDateRangeOpen] = useState(false)
+  const [calendarMonth, setCalendarMonth] = useState(() => parseISO(getTodayInputValue()))
+  const [calendarRange, setCalendarRange] = useState<DateRange | undefined>()
   const modeChanged = Boolean(isEditing && editingTrip && mode !== editingTrip.mode)
 
   useEffect(() => {
@@ -47,6 +89,55 @@ export function TripCreatePage() {
   }, [saveFeedback])
 
   const submitLabel = isEditing ? '儲存變更' : '建立旅程'
+  const tripLengthLabel = getTripLengthLabel(startDate, endDate)
+  const dateRangeSummary = formatDateRangeSummary(startDate, endDate)
+  const selectedRange = useMemo<DateRange>(
+    () => ({
+      from: parseISO(startDate),
+      to: parseISO(endDate),
+    }),
+    [startDate, endDate],
+  )
+
+  useEffect(() => {
+    if (!dateRangeOpen) {
+      setCalendarRange(selectedRange)
+    }
+  }, [dateRangeOpen, selectedRange])
+
+  function handleDateRangeOpenChange(open: boolean) {
+    setDateRangeOpen(open)
+
+    if (open) {
+      setCalendarMonth(parseISO(startDate))
+      setCalendarRange(undefined)
+    }
+  }
+
+  function handleDateRangeSelect(range: DateRange | undefined) {
+    if (!range?.from) {
+      setCalendarRange(undefined)
+      return
+    }
+
+    const isFirstClickAfterReset =
+      !calendarRange?.from &&
+      range.to &&
+      format(range.from, 'yyyy-MM-dd') === format(range.to, 'yyyy-MM-dd')
+
+    if (!range.to || isFirstClickAfterReset) {
+      setCalendarRange({
+        from: range.from,
+        to: undefined,
+      })
+      return
+    }
+
+    setCalendarRange(range)
+    setStartDate(format(range.from, 'yyyy-MM-dd'))
+    setEndDate(format(range.to, 'yyyy-MM-dd'))
+    setDateRangeOpen(false)
+  }
 
   async function handleSubmit() {
     if (!title.trim()) {
@@ -73,7 +164,7 @@ export function TripCreatePage() {
             mode,
           },
         })
-        await queryClient.invalidateQueries({ queryKey: ['/go-funny-api/trips'] })
+        await queryClient.invalidateQueries({ queryKey: ['/trips'] })
         setSaveFeedback({ type: 'success', message: '儲存成功。' })
       } catch {
         setSaveFeedback({ type: 'error', message: '儲存失敗，請稍後再試。' })
@@ -91,7 +182,10 @@ export function TripCreatePage() {
           mode,
         },
       })
-      await queryClient.invalidateQueries({ queryKey: ['/go-funny-api/trips'] })
+      if (result.status !== 201) {
+        throw new Error('Create trip failed')
+      }
+      await queryClient.invalidateQueries({ queryKey: ['/trips'] })
       setSaveFeedback(null)
       navigate(`/trip/${result.data.id}/members`)
     } catch {
@@ -104,7 +198,7 @@ export function TripCreatePage() {
 
     try {
       await deleteTripMutation.mutateAsync({ tripId: editingTrip.id })
-      await queryClient.invalidateQueries({ queryKey: ['/go-funny-api/trips'] })
+      await queryClient.invalidateQueries({ queryKey: ['/trips'] })
       navigate('/')
     } catch {
       setSaveFeedback({ type: 'error', message: '刪除失敗，請稍後再試。' })
@@ -130,21 +224,59 @@ export function TripCreatePage() {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-foreground">開始日期</label>
-              <div className="flex h-12 items-center gap-3 rounded-2xl border border-border bg-white px-4 focus-within:border-primary">
-                <CalendarRange className="h-5 w-5 text-primary" />
-                <input type="date" className="w-full bg-transparent outline-none" value={startDate} onChange={(event) => setStartDate(event.target.value)} />
-              </div>
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-foreground">結束日期</label>
-              <div className="flex h-12 items-center gap-3 rounded-2xl border border-border bg-white px-4 focus-within:border-primary">
-                <CalendarRange className="h-5 w-5 text-primary" />
-                <input type="date" className="w-full bg-transparent outline-none" value={endDate} onChange={(event) => setEndDate(event.target.value)} />
-              </div>
-            </div>
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-foreground">旅程日期</label>
+            <Popover open={dateRangeOpen} onOpenChange={handleDateRangeOpenChange}>
+              <PopoverTrigger asChild>
+                <button
+                  type="button"
+                  className="w-full rounded-[28px] border border-[#D6E6E9] bg-[linear-gradient(135deg,rgba(255,255,255,0.98),rgba(243,249,249,0.95))] p-2 text-left shadow-[0_12px_32px_rgba(118,157,167,0.08)] transition-colors hover:border-[#BFD8DE]"
+                >
+                  <div className="rounded-[22px] bg-[#F8FCFC] px-4 py-4">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="text-[11px] uppercase tracking-[0.24em] text-[#6A919B]">Trip Range</p>
+                        <p className="mt-1 truncate text-[17px] font-semibold text-foreground">{dateRangeSummary}</p>
+                      </div>
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#EAF4F6] text-primary">
+                        <ArrowRight className="h-4 w-4" />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="mt-2 flex items-center justify-between rounded-[20px] bg-white/70 px-4 py-3 text-sm text-muted-foreground">
+                    <div className="flex items-center gap-2">
+                      <CalendarRange className="h-4 w-4 text-primary" />
+                      <span>{formatDateChip(startDate)} 到 {formatDateChip(endDate)}</span>
+                    </div>
+                    <span className="rounded-full bg-[#EEF7F8] px-3 py-1 text-xs font-semibold text-primary">{tripLengthLabel}</span>
+                  </div>
+                </button>
+              </PopoverTrigger>
+
+              <PopoverContent align="start" className="w-[min(100vw-2rem,24rem)] rounded-[28px] border-[#D6E6E9] p-3">
+                <div className="mb-3 flex items-center justify-between rounded-[20px] bg-[#F7FBFC] px-4 py-3">
+                  <div>
+                    <p className="text-xs uppercase tracking-[0.22em] text-[#6A919B]">Trip Range</p>
+                    <p className="mt-1 text-sm font-medium text-foreground">
+                      {calendarRange?.from && !calendarRange.to ? '再選擇回程日' : '先選出發日，再選回程日'}
+                    </p>
+                  </div>
+                  <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-primary shadow-soft">{tripLengthLabel}</span>
+                </div>
+
+                <Calendar
+                  mode="range"
+                  month={calendarMonth}
+                  onMonthChange={setCalendarMonth}
+                  selected={dateRangeOpen ? calendarRange : selectedRange}
+                  onSelect={handleDateRangeSelect}
+                  defaultMonth={parseISO(startDate)}
+                  numberOfMonths={1}
+                  className="rounded-[24px] bg-white"
+                />
+              </PopoverContent>
+            </Popover>
           </div>
         </CardContent>
       </Card>

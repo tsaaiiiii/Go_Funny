@@ -8,14 +8,15 @@ import { EmptyState } from '@/components/ui/empty-state'
 import { SectionHeading } from '@/components/ui/section-heading'
 import { useGetTripById } from '@/api/generated/trips/trips'
 import { useGetTripSettlement } from '@/api/generated/settlement/settlement'
+import { hasStatus } from '@/lib/api-response'
 import { formatCurrency } from '@/lib/currency'
 
 export function SettlementPage() {
   const { tripId } = useParams()
   const { data: tripResponse } = useGetTripById(tripId!)
   const { data: settlementResponse } = useGetTripSettlement(tripId!)
-  const trip = tripResponse?.data
-  const settlement = settlementResponse?.data
+  const trip = hasStatus(tripResponse, 200) ? tripResponse.data : null
+  const settlement = hasStatus(settlementResponse, 200) ? settlementResponse.data : null
 
   if (!trip || !settlement) {
     return null

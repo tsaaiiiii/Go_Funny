@@ -12,13 +12,7 @@ import { SectionHeading } from '@/components/ui/section-heading'
 import { useGetTrips } from '@/api/generated/trips/trips'
 import { authClient } from '@/lib/auth-client'
 import { formatCurrency } from '@/lib/currency'
-
-interface MockSession {
-  user: {
-    email: string
-    name: string
-  }
-}
+import { MockSession, readMockSession } from '@/lib/mock-session'
 
 export function TripsPage() {
   const { data: session } = authClient.useSession()
@@ -42,12 +36,7 @@ export function TripsPage() {
   const currentUser = session?.user ?? mockSession?.user
 
   useEffect(() => {
-    try {
-      const stored = window.localStorage.getItem('mock-auth-session')
-      setMockSession(stored ? (JSON.parse(stored) as MockSession) : null)
-    } catch {
-      setMockSession(null)
-    }
+    setMockSession(readMockSession())
   }, [])
 
   function openProfileModal() {

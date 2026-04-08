@@ -12,12 +12,13 @@ import { SectionHeading } from '@/components/ui/section-heading'
 import { useGetTripById } from '@/api/generated/trips/trips'
 import { useDeleteTripMember } from '@/api/generated/members/members'
 import { useCreateTripInvitation } from '@/api/generated/invitations/invitations'
+import { hasStatus } from '@/lib/api-response'
 
 export function MembersPage() {
   const { tripId } = useParams()
   const queryClient = useQueryClient()
   const { data: tripResponse } = useGetTripById(tripId!)
-  const trip = tripResponse?.data
+  const trip = hasStatus(tripResponse, 200) ? tripResponse.data : null
   const deleteMemberMutation = useDeleteTripMember()
   const createInvitationMutation = useCreateTripInvitation()
   const [inviteToken, setInviteToken] = useState<string | null>(null)
@@ -27,8 +28,8 @@ export function MembersPage() {
     return null
   }
 
-  function hasExpenseRecord(membershipId: string) {
-    return trip!.expenses.some(
+  const hasExpenseRecord = (membershipId: string) => {
+    return trip.expenses.some(
       (expense) =>
         expense.payerMembershipId === membershipId ||
         Boolean(expense.splits?.some((split) => split.membershipId === membershipId)),
@@ -37,7 +38,7 @@ export function MembersPage() {
 
   async function handleDeleteMember(memberId: string) {
     await deleteMemberMutation.mutateAsync({ tripId: tripId!, memberId })
-    await queryClient.invalidateQueries({ queryKey: [`/go-funny-api/trips/${tripId}`] })
+    await queryClient.invalidateQueries({ queryKey: [`/trips/${tripId}`] })
   }
 
   async function handleCreateInviteLink() {

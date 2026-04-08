@@ -10,10 +10,11 @@ import { EmptyState } from '@/components/ui/empty-state'
 import { SectionHeading } from '@/components/ui/section-heading'
 import { useGetTripById } from '@/api/generated/trips/trips'
 import { useDeleteTripExpense } from '@/api/generated/expenses/expenses'
+import { hasStatus } from '@/lib/api-response'
 import { formatCurrency } from '@/lib/currency'
 import type { Expense, Member } from '@/api/generated/model'
 
-function buildDateRange(startDate: string, endDate: string) {
+const buildDateRange = (startDate: string, endDate: string) => {
   const dates: string[] = []
   const current = new Date(startDate)
   const end = new Date(endDate)
@@ -26,7 +27,7 @@ function buildDateRange(startDate: string, endDate: string) {
   return dates
 }
 
-function formatDayLabel(dateString: string) {
+const formatDayLabel = (dateString: string) => {
   const date = new Date(`${dateString}T00:00:00`)
   return new Intl.DateTimeFormat('zh-TW', {
     month: 'numeric',
@@ -34,13 +35,13 @@ function formatDayLabel(dateString: string) {
   }).format(date)
 }
 
-function isToday(dateString: string) {
+const isToday = (dateString: string) => {
   return dateString === new Date().toISOString().slice(0, 10)
 }
 
 const allDateKey = 'all'
 
-function findDefaultSelectedDate(expenseDates: string[], tripStartDate: string) {
+const findDefaultSelectedDate = (expenseDates: string[], tripStartDate: string) => {
   const today = new Date().toISOString().slice(0, 10)
 
   if (expenseDates.includes(today)) {
@@ -55,7 +56,7 @@ function findDefaultSelectedDate(expenseDates: string[], tripStartDate: string) 
   return allDateKey
 }
 
-function buildExpenseSplitDetails(expense: Expense, members: Member[]) {
+const buildExpenseSplitDetails = (expense: Expense, members: Member[]) => {
   if (!expense.splits || expense.splits.length === 0) return []
 
   return expense.splits
@@ -70,7 +71,7 @@ export function TripDetailPage() {
   const { tripId } = useParams()
   const queryClient = useQueryClient()
   const { data: tripResponse } = useGetTripById(tripId!)
-  const trip = tripResponse?.data
+  const trip = hasStatus(tripResponse, 200) ? tripResponse.data : null
   const deleteExpenseMutation = useDeleteTripExpense()
 
   if (!trip) {
@@ -100,7 +101,7 @@ export function TripDetailPage() {
 
   async function handleDeleteExpense(expenseId: string) {
     await deleteExpenseMutation.mutateAsync({ tripId: tripId!, expenseId })
-    await queryClient.invalidateQueries({ queryKey: [`/go-funny-api/trips/${tripId}`] })
+    await queryClient.invalidateQueries({ queryKey: [`/trips/${tripId}`] })
   }
 
   return (

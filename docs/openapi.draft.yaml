@@ -4,7 +4,7 @@ info:
   version: 0.1.0
   summary: MVP API contract for trip expense sharing.
 servers:
-  - url: http://localhost:3000/go-funny-api
+  - url: http://localhost:3000
     description: Local development server
 tags:
   - name: Trips

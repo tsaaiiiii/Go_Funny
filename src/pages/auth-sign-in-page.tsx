@@ -6,6 +6,7 @@ import { MobileHeader } from '@/components/layout/mobile-header'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { authClient } from '@/lib/auth-client'
+import { isMockAuthEnabled, writeMockSession } from '@/lib/mock-session'
 
 export function AuthSignInPage() {
   const navigate = useNavigate()
@@ -16,16 +17,13 @@ export function AuthSignInPage() {
   async function handleEmailSignIn() {
     setStatus('')
 
-    if (email === 'example.com' && password === 'example') {
-      window.localStorage.setItem(
-        'mock-auth-session',
-        JSON.stringify({
-          user: {
-            email: 'example.com',
-            name: 'example',
-          },
-        }),
-      )
+    if (isMockAuthEnabled() && email === 'example.com' && password === 'example') {
+      writeMockSession({
+        user: {
+          email: 'example.com',
+          name: 'example',
+        },
+      })
       navigate('/')
       return
     }

@@ -23,6 +23,7 @@ import type {
   NotFoundResponse,
   Settlement
 } from '../model';
+import { buildApiUrl } from '@/lib/api-base-url';
 
 
 
@@ -55,7 +56,7 @@ export const getGetTripSettlementUrl = (tripId: string,) => {
 
 
 
-  return `/go-funny-api/settlement/${tripId}`
+  return buildApiUrl(`/settlement/${tripId}`)
 }
 
 export const getTripSettlement = async (tripId: string, options?: RequestInit): Promise<getTripSettlementResponse> => {
@@ -81,7 +82,7 @@ export const getTripSettlement = async (tripId: string, options?: RequestInit): 
 
 export const getGetTripSettlementQueryKey = (tripId: string,) => {
     return [
-    `/go-funny-api/settlement/${tripId}`
+    `/settlement/${tripId}`
     ] as const;
     }
 
@@ -147,7 +148,6 @@ export function useGetTripSettlement<TData = Awaited<ReturnType<typeof getTripSe
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
-
 
 
 

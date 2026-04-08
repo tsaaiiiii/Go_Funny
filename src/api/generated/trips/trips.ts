@@ -31,6 +31,7 @@ import type {
   TripSummary,
   UpdateTripRequest
 } from '../model';
+import { buildApiUrl } from '@/lib/api-base-url';
 
 
 
@@ -56,7 +57,7 @@ export const getGetTripsUrl = () => {
 
 
 
-  return `/go-funny-api/trips`
+  return buildApiUrl(`/trips`)
 }
 
 export const getTrips = async ( options?: RequestInit): Promise<getTripsResponse> => {
@@ -82,7 +83,7 @@ export const getTrips = async ( options?: RequestInit): Promise<getTripsResponse
 
 export const getGetTripsQueryKey = () => {
     return [
-    `/go-funny-api/trips`
+    `/trips`
     ] as const;
     }
 
@@ -179,7 +180,7 @@ export const getCreateTripUrl = () => {
 
 
 
-  return `/go-funny-api/trips`
+  return buildApiUrl(`/trips`)
 }
 
 export const createTrip = async (createTripRequest: CreateTripRequest, options?: RequestInit): Promise<createTripResponse> => {
@@ -274,7 +275,7 @@ export const getGetTripByIdUrl = (tripId: string,) => {
 
 
 
-  return `/go-funny-api/trips/${tripId}`
+  return buildApiUrl(`/trips/${tripId}`)
 }
 
 export const getTripById = async (tripId: string, options?: RequestInit): Promise<getTripByIdResponse> => {
@@ -300,7 +301,7 @@ export const getTripById = async (tripId: string, options?: RequestInit): Promis
 
 export const getGetTripByIdQueryKey = (tripId: string,) => {
     return [
-    `/go-funny-api/trips/${tripId}`
+    `/trips/${tripId}`
     ] as const;
     }
 
@@ -402,7 +403,7 @@ export const getUpdateTripUrl = (tripId: string,) => {
 
 
 
-  return `/go-funny-api/trips/${tripId}`
+  return buildApiUrl(`/trips/${tripId}`)
 }
 
 export const updateTrip = async (tripId: string,
@@ -498,7 +499,7 @@ export const getDeleteTripUrl = (tripId: string,) => {
 
 
 
-  return `/go-funny-api/trips/${tripId}`
+  return buildApiUrl(`/trips/${tripId}`)
 }
 
 export const deleteTrip = async (tripId: string, options?: RequestInit): Promise<deleteTripResponse> => {

@@ -6,11 +6,12 @@ import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
 import { SectionHeading } from '@/components/ui/section-heading'
 import { useGetTripById } from '@/api/generated/trips/trips'
+import { hasStatus } from '@/lib/api-response'
 
 export function TripManagePage() {
   const { tripId } = useParams()
   const { data: tripResponse } = useGetTripById(tripId!)
-  const trip = tripResponse?.data
+  const trip = hasStatus(tripResponse, 200) ? tripResponse.data : null
 
   if (!trip) {
     return null

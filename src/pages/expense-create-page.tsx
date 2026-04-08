@@ -7,17 +7,14 @@ import { MobileHeader } from '@/components/layout/mobile-header'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
+import { DatePickerField } from '@/components/ui/date-picker-field'
 import { EmptyState } from '@/components/ui/empty-state'
 import { SectionHeading } from '@/components/ui/section-heading'
 import { useGetTrips, useGetTripById } from '@/api/generated/trips/trips'
 import { useCreateTripExpense } from '@/api/generated/expenses/expenses'
+import { hasStatus } from '@/lib/api-response'
 import { formatCurrency } from '@/lib/currency'
-
-function getTodayInputValue() {
-  const now = new Date()
-  const offset = now.getTimezoneOffset() * 60_000
-  return new Date(now.getTime() - offset).toISOString().slice(0, 10)
-}
+import { getTodayInputValue } from '@/lib/date'
 
 export function ExpenseCreatePage() {
   const { tripId } = useParams()
@@ -27,7 +24,7 @@ export function ExpenseCreatePage() {
   const trips = tripsResponse?.data ?? []
   const [selectedTripId, setSelectedTripId] = useState(tripId ?? '')
   const { data: tripResponse } = useGetTripById(selectedTripId, { query: { enabled: !!selectedTripId } })
-  const trip = tripResponse?.data
+  const trip = hasStatus(tripResponse, 200) ? tripResponse.data : null
   const createExpenseMutation = useCreateTripExpense()
 
   const [title, setTitle] = useState('河原町晚餐')
@@ -82,7 +79,7 @@ export function ExpenseCreatePage() {
       },
     })
 
-    await queryClient.invalidateQueries({ queryKey: [`/go-funny-api/trips/${trip.id}`] })
+    await queryClient.invalidateQueries({ queryKey: [`/trips/${trip.id}`] })
     navigate(`/trip/${trip.id}`)
   }
 
@@ -131,7 +128,7 @@ export function ExpenseCreatePage() {
 
           <div className="space-y-2">
             <label className="text-sm font-medium text-foreground">日期</label>
-            <input type="date" className="h-12 w-full rounded-2xl border border-border bg-white px-4 outline-none focus:border-primary" value={date} onChange={(event) => setDate(event.target.value)} />
+            <DatePickerField value={date} onChange={setDate} helperText="選擇支出發生的日期" />
           </div>
 
           {trip.mode === 'expense' ? (
