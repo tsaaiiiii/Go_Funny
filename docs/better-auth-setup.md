@@ -8,12 +8,10 @@
 - 已建立登入頁：`src/pages/auth-sign-in-page.tsx`
 - 已建立註冊頁：`src/pages/auth-sign-up-page.tsx`
 - 已建立接受邀請頁：`src/pages/invitation-accept-page.tsx`
-- 已加入 Google 註冊 / 登入按鈕 UI
 
 ## 目前尚未完成
 
 - 後端 Better Auth server
-- Google OAuth provider 設定
 - session / user 資料表
 - invitation token 接受流程整合
 
@@ -33,7 +31,26 @@ VITE_API_BASE_URL=
 VITE_BETTER_AUTH_URL=
 ```
 
-正式環境建議使用 `.env.production`：
+如果 `VITE_API_BASE_URL` 與 `VITE_BETTER_AUTH_URL` 留空，前端會走同源 `/api/*`：
+
+- Better Auth: `/api/auth/*`
+- 業務 API: `/api/trips`、`/api/members`、`/api/expenses`、`/api/contributions`、`/api/settlement`、`/api/invitations`
+
+開發環境會由 Vite proxy 轉送：
+
+- `/api/auth/*` 原樣代理到後端 `/api/auth/*`
+- `/api/*` 業務 API rewrite 成後端原本的 `/*`
+
+正式環境若已在前端網域設定反向代理，建議 `.env.production` 也維持同源：
+
+```env
+VITE_API_BASE_URL=
+VITE_BETTER_AUTH_URL=
+```
+
+只有在你真的需要直接跨網域打後端時，才設定這兩個值。一般情況建議留空並改走同源 `/api/*`，能降低跨站 cookie 在 Safari 等瀏覽器被擋掉的風險。
+
+如果暫時需要直接連後端，可額外建立直連版設定：
 
 ```env
 VITE_API_BASE_URL=https://go-funny-backend.onrender.com
@@ -46,14 +63,7 @@ VITE_BETTER_AUTH_URL=https://go-funny-backend.onrender.com
 
 後端需建立 Better Auth instance，並提供 `/api/auth/*` endpoint。
 
-### 2. Google provider
-
-後端需設定 Google OAuth：
-
-- `GOOGLE_CLIENT_ID`
-- `GOOGLE_CLIENT_SECRET`
-
-### 3. 使用者資料
+### 2. 使用者資料
 
 需要至少有：
 
@@ -61,7 +71,7 @@ VITE_BETTER_AUTH_URL=https://go-funny-backend.onrender.com
 - session
 - account / provider linkage
 
-### 4. 與旅程協作整合
+### 3. 與旅程協作整合
 
 登入後接受 invitation token 時，後端應：
 
@@ -78,12 +88,6 @@ VITE_BETTER_AUTH_URL=https://go-funny-backend.onrender.com
 - `/api/auth/sign-up/email`
 - `/api/auth/sign-out`
 - `/api/auth/callback/google`
-
-### Google 登入 / 註冊
-
-前端目前使用：
-
-- `authClient.signIn.social({ provider: 'google' })`
 
 ### Email 登入 / 註冊
 

@@ -6,6 +6,7 @@ import { MobileHeader } from '@/components/layout/mobile-header'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { EmptyState } from '@/components/ui/empty-state'
+import { LoadingState } from '@/components/ui/loading-state'
 import { hasStatus } from '@/lib/api-response'
 
 interface NoTripPageProps {
@@ -40,7 +41,7 @@ export function NoTripPage({
   }
 
   if (isPending) {
-    return null
+    return <LoadingState title="旅程載入中" description="正在確認是否已有可用旅程。" />
   }
 
   return (

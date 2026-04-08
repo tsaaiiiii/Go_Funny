@@ -8,22 +8,30 @@ import { EmptyState } from '@/components/ui/empty-state'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
+import { LoadingState } from '@/components/ui/loading-state'
 import { SectionHeading } from '@/components/ui/section-heading'
+import { queueFlashToast, useToast } from '@/components/ui/toast'
 import { useGetTrips } from '@/api/generated/trips/trips'
 import { hasStatus } from '@/lib/api-response'
 import { authClient } from '@/lib/auth-client'
 import { formatCurrency } from '@/lib/currency'
 import { clearMockSession, MockSession, readMockSession, writeMockSession } from '@/lib/mock-session'
 
-export function TripsPage() {
+interface TripsPageProps {
+  sessionUser: {
+    email?: string | null
+    name?: string | null
+  } | null
+}
+
+export function TripsPage({ sessionUser }: TripsPageProps) {
   const navigate = useNavigate()
-  const { data: session } = authClient.useSession()
-  const { data: tripsResponse } = useGetTrips()
+  const { showError, showSuccess } = useToast()
+  const { data: tripsResponse, isPending: tripsPending } = useGetTrips()
   const trips = hasStatus(tripsResponse, 200) ? tripsResponse.data : []
   const [mockSession, setMockSession] = useState<MockSession | null>(null)
   const [profileModalOpen, setProfileModalOpen] = useState(false)
   const [draftName, setDraftName] = useState('')
-  const [profileStatus, setProfileStatus] = useState('')
   const [signOutPending, setSignOutPending] = useState(false)
   const sortedTrips = useMemo(
     () =>
@@ -36,22 +44,25 @@ export function TripsPage() {
     (sum, trip) => sum + trip.expenses.reduce((tripSum, expense) => tripSum + expense.amount, 0),
     0,
   )
-  const currentUser = session?.user ?? mockSession?.user
+  const currentUser = sessionUser ?? mockSession?.user
 
   useEffect(() => {
     setMockSession(readMockSession())
   }, [])
 
+  if (tripsPending) {
+    return <LoadingState title="旅程資料載入中" description="正在整理你的旅程、支出與首頁摘要。" />
+  }
+
   function openProfileModal() {
     setDraftName(currentUser?.name ?? '')
-    setProfileStatus('')
     setProfileModalOpen(true)
   }
 
   function handleSaveProfile() {
     const nextName = draftName.trim()
     if (!nextName) {
-      setProfileStatus('名稱不可為空白')
+      showError('名稱不可為空白')
       return
     }
 
@@ -65,29 +76,29 @@ export function TripsPage() {
       }
       writeMockSession(nextSession)
       setMockSession(nextSession)
-      setProfileStatus('更新成功')
+      showSuccess('個人資料已更新')
       window.setTimeout(() => setProfileModalOpen(false), 400)
       return
     }
 
-    setProfileStatus('目前僅 mock 登入可直接修改名稱')
+    showError('目前僅 mock 登入可直接修改名稱')
   }
 
   async function handleSignOut() {
     setSignOutPending(true)
-    setProfileStatus('')
 
     try {
-      if (session?.user) {
+      if (sessionUser) {
         await authClient.signOut()
       }
 
       clearMockSession()
       setMockSession(null)
       setProfileModalOpen(false)
+      queueFlashToast({ tone: 'success', title: '已登出' })
       navigate('/login', { replace: true })
     } catch {
-      setProfileStatus('登出失敗，請稍後再試')
+      showError('登出失敗', '請稍後再試。')
     } finally {
       setSignOutPending(false)
     }
@@ -149,7 +160,6 @@ export function TripsPage() {
               <LogOut className="h-4 w-4" />
               {signOutPending ? '登出中...' : '登出'}
             </Button>
-            {profileStatus ? <p className="text-sm text-muted-foreground">{profileStatus}</p> : null}
           </CardContent>
         </Card>
       ) : (
@@ -158,7 +168,7 @@ export function TripsPage() {
             <div className="flex items-center justify-between gap-3">
               <div>
                 <p className="font-medium text-foreground">帳號與同步</p>
-                <p className="text-sm text-muted-foreground">之後可使用 Better Auth 與 Google 進行登入。</p>
+                <p className="text-sm text-muted-foreground">目前可使用 Email 登入與註冊。</p>
               </div>
               <Badge tone="blue">Beta</Badge>
             </div>
@@ -303,12 +313,6 @@ export function TripsPage() {
                         onChange={(event) => setDraftName(event.target.value)}
                       />
                     </div>
-
-                    {profileStatus ? (
-                      <p className={`text-sm ${profileStatus === '更新成功' ? 'text-secondary' : 'text-danger'}`}>
-                        {profileStatus}
-                      </p>
-                    ) : null}
                   </div>
 
                   <div className="mt-5 grid grid-cols-2 gap-3">

@@ -1,32 +1,16 @@
 import { ArrowRight, CheckCircle2, Link2, MapPin, ShieldCheck, Sparkles, Users } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { useMemo } from 'react'
 import { Link, useParams } from 'react-router-dom'
 
 import { MobileHeader } from '@/components/layout/mobile-header'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
-import { GoogleIcon } from '@/components/ui/google-icon'
-import { authClient } from '@/lib/auth-client'
 
 export function InvitationAcceptPage() {
   const { token } = useParams()
-  const [status, setStatus] = useState('')
   const inviteToken = useMemo(() => token ?? '', [token])
   const tokenPreview = useMemo(() => inviteToken.slice(0, 8) || 'draft-link', [inviteToken])
-
-  async function handleContinueWithGoogle() {
-    setStatus('')
-
-    try {
-      await authClient.signIn.social({
-        provider: 'google',
-        callbackURL: `/invitations/${inviteToken}`,
-      })
-    } catch {
-      setStatus('接受邀請流程需要 Better Auth 與邀請 API 完成後才能正式運作。')
-    }
-  }
 
   return (
     <div className="space-y-5 pb-4">
@@ -81,14 +65,13 @@ export function InvitationAcceptPage() {
             </div>
             <div className="rounded-2xl bg-white/80 p-3">
               <p className="text-muted-foreground">加入方式</p>
-              <p className="mt-1 font-semibold text-foreground">Google</p>
+              <p className="mt-1 font-semibold text-foreground">登入後加入</p>
             </div>
           </div>
 
-          <Button className="w-full gap-2" onClick={handleContinueWithGoogle}>
-            <GoogleIcon />
-            使用 Google 繼續
-          </Button>
+          <Link to="/login" className="block">
+            <Button className="w-full">前往登入後加入</Button>
+          </Link>
 
           <div className="rounded-3xl border border-border/70 bg-white/75 px-4 py-4">
             <div className="mb-3 flex items-center gap-2 font-medium text-foreground">
@@ -118,8 +101,6 @@ export function InvitationAcceptPage() {
             </div>
             這是前端接受邀請頁的高擬真畫面，實際加入流程仍需等 Better Auth 與 invitation API 完成後接通。
           </div>
-
-          {status ? <p className="text-sm text-muted-foreground">{status}</p> : null}
 
           <p className="text-sm text-muted-foreground">
             想先看看產品？ <Link to="/" className="font-medium text-primary">回到首頁</Link>

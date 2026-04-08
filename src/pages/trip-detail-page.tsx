@@ -7,7 +7,9 @@ import { MobileHeader } from '@/components/layout/mobile-header'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
 import { EmptyState } from '@/components/ui/empty-state'
+import { LoadingState } from '@/components/ui/loading-state'
 import { SectionHeading } from '@/components/ui/section-heading'
+import { useToast } from '@/components/ui/toast'
 import { useGetTripById } from '@/api/generated/trips/trips'
 import { useDeleteTripExpense } from '@/api/generated/expenses/expenses'
 import { hasStatus } from '@/lib/api-response'
@@ -70,9 +72,14 @@ const buildExpenseSplitDetails = (expense: Expense, members: Member[]) => {
 export function TripDetailPage() {
   const { tripId } = useParams()
   const queryClient = useQueryClient()
-  const { data: tripResponse } = useGetTripById(tripId!)
+  const { showError, showSuccess } = useToast()
+  const { data: tripResponse, isPending } = useGetTripById(tripId!)
   const trip = hasStatus(tripResponse, 200) ? tripResponse.data : null
   const deleteExpenseMutation = useDeleteTripExpense()
+
+  if (isPending) {
+    return <LoadingState title="旅程明細載入中" description="正在整理這趟旅程的支出與記錄。" />
+  }
 
   if (!trip) {
     return null
@@ -100,8 +107,13 @@ export function TripDetailPage() {
   const selectedDateTotal = selectedDateExpenses.reduce((sum, expense) => sum + expense.amount, 0)
 
   async function handleDeleteExpense(expenseId: string) {
-    await deleteExpenseMutation.mutateAsync({ tripId: tripId!, expenseId })
-    await queryClient.invalidateQueries({ queryKey: [`/trips/${tripId}`] })
+    try {
+      await deleteExpenseMutation.mutateAsync({ tripId: tripId!, expenseId })
+      await queryClient.invalidateQueries({ queryKey: [`/trips/${tripId}`] })
+      showSuccess('支出已刪除')
+    } catch {
+      showError('刪除支出失敗', '請稍後再試。')
+    }
   }
 
   return (

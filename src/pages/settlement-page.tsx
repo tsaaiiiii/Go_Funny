@@ -5,6 +5,7 @@ import { MobileHeader } from '@/components/layout/mobile-header'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { EmptyState } from '@/components/ui/empty-state'
+import { LoadingState } from '@/components/ui/loading-state'
 import { SectionHeading } from '@/components/ui/section-heading'
 import { useGetTripById } from '@/api/generated/trips/trips'
 import { useGetTripSettlement } from '@/api/generated/settlement/settlement'
@@ -13,10 +14,14 @@ import { formatCurrency } from '@/lib/currency'
 
 export function SettlementPage() {
   const { tripId } = useParams()
-  const { data: tripResponse } = useGetTripById(tripId!)
-  const { data: settlementResponse } = useGetTripSettlement(tripId!)
+  const { data: tripResponse, isPending: tripPending } = useGetTripById(tripId!)
+  const { data: settlementResponse, isPending: settlementPending } = useGetTripSettlement(tripId!)
   const trip = hasStatus(tripResponse, 200) ? tripResponse.data : null
   const settlement = hasStatus(settlementResponse, 200) ? settlementResponse.data : null
+
+  if (tripPending || settlementPending) {
+    return <LoadingState title="結算資料載入中" description="正在整理這趟旅程的結算結果。" />
+  }
 
   if (!trip || !settlement) {
     return null

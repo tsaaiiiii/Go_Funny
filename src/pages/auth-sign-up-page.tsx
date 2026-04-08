@@ -1,22 +1,23 @@
 import { ArrowRight, LockKeyhole, Mail, UserRound } from 'lucide-react'
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 
 import { MobileHeader } from '@/components/layout/mobile-header'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
-import { GoogleIcon } from '@/components/ui/google-icon'
+import { queueFlashToast, useToast } from '@/components/ui/toast'
 import { authClient } from '@/lib/auth-client'
 
 export function AuthSignUpPage() {
+  const navigate = useNavigate()
+  const { showError } = useToast()
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [status, setStatus] = useState('')
+  const [emailPending, setEmailPending] = useState(false)
 
   async function handleEmailSignUp() {
-    setStatus('')
-
+    setEmailPending(true)
     try {
       await authClient.signUp.email({
         name,
@@ -24,27 +25,18 @@ export function AuthSignUpPage() {
         password,
         callbackURL: '/',
       })
+      queueFlashToast({ tone: 'success', title: '註冊成功', description: '帳號已建立，正在為你進入首頁。' })
+      navigate('/', { replace: true })
     } catch {
-      setStatus('註冊流程需等待 Better Auth 後端完成後才能正常運作。')
-    }
-  }
-
-  async function handleGoogleSignUp() {
-    setStatus('')
-
-    try {
-      await authClient.signIn.social({
-        provider: 'google',
-        callbackURL: '/',
-      })
-    } catch {
-      setStatus('Google 註冊需等待 Better Auth 與 Google Provider 完成設定。')
+      showError('註冊失敗', '註冊流程尚未完成，或目前帳號服務不可用。')
+    } finally {
+      setEmailPending(false)
     }
   }
 
   return (
     <div className="space-y-5 pb-4">
-      <MobileHeader title="建立帳號" backTo="/login" />
+      <MobileHeader title="建立帳號" />
 
       <Card className="border-none bg-[linear-gradient(180deg,rgba(255,253,252,0.96),rgba(240,247,246,0.92))] shadow-float">
         <CardContent className="space-y-5 pt-5">
@@ -52,11 +44,6 @@ export function AuthSignUpPage() {
             <p className="text-sm text-muted-foreground">Better Auth</p>
             <h2 className="mt-1 text-2xl font-semibold text-foreground">註冊後可與旅伴共同編輯旅程</h2>
           </div>
-
-          <Button variant="outline" className="w-full gap-2" onClick={handleGoogleSignUp}>
-            <GoogleIcon />
-            使用 Google 註冊
-          </Button>
 
           <div className="space-y-3">
             <div className="flex h-12 items-center gap-3 rounded-2xl border border-border bg-white px-4 focus-within:border-primary">
@@ -89,12 +76,10 @@ export function AuthSignUpPage() {
             </div>
           </div>
 
-          <Button className="w-full gap-2" onClick={handleEmailSignUp} disabled={!name || !email || !password}>
+          <Button className="w-full gap-2" onClick={handleEmailSignUp} disabled={!name || !email || !password || emailPending}>
             <ArrowRight className="h-4 w-4" />
-            使用 Email 註冊
+            {emailPending ? '註冊中...' : '使用 Email 註冊'}
           </Button>
-
-          {status ? <p className="text-sm text-muted-foreground">{status}</p> : null}
 
           <p className="text-sm text-muted-foreground">
             已經有帳號？ <Link to="/login" className="font-medium text-primary">前往登入</Link>

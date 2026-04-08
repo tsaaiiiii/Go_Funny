@@ -6,7 +6,6 @@ export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
   const apiBaseUrl = env.VITE_API_BASE_URL?.trim()
   const proxyTarget = env.VITE_PROXY_TARGET?.trim() || 'https://go-funny-backend.onrender.com'
-  const proxyPrefixes = ['/api/auth', '/trips', '/members', '/expenses', '/contributions', '/settlement', '/invitations']
 
   return {
     plugins: [react()],
@@ -18,15 +17,13 @@ export default defineConfig(({ mode }) => {
     server: {
       proxy: apiBaseUrl
         ? undefined
-        : Object.fromEntries(
-            proxyPrefixes.map((prefix) => [
-              prefix,
-              {
-                target: proxyTarget,
-                changeOrigin: true,
-              },
-            ]),
-          ),
+        : {
+            '/api': {
+              target: proxyTarget,
+              changeOrigin: true,
+              rewrite: (path) => (path.startsWith('/api/auth') ? path : path.replace(/^\/api/, '')),
+            },
+          },
     },
   }
 })

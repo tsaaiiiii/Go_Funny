@@ -5,19 +5,19 @@ import { Link, useNavigate } from 'react-router-dom'
 import { MobileHeader } from '@/components/layout/mobile-header'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
-import { GoogleIcon } from '@/components/ui/google-icon'
+import { queueFlashToast, useToast } from '@/components/ui/toast'
 import { authClient } from '@/lib/auth-client'
 import { isMockAuthEnabled, writeMockSession } from '@/lib/mock-session'
 
 export function AuthSignInPage() {
   const navigate = useNavigate()
+  const { showError } = useToast()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [status, setStatus] = useState('')
+  const [emailPending, setEmailPending] = useState(false)
 
   async function handleEmailSignIn() {
-    setStatus('')
-
+    setEmailPending(true)
     if (isMockAuthEnabled() && email === 'example.com' && password === 'example') {
       writeMockSession({
         user: {
@@ -25,6 +25,7 @@ export function AuthSignInPage() {
           name: 'example',
         },
       })
+      queueFlashToast({ tone: 'success', title: '登入成功', description: '已使用本地 mock 帳號登入。' })
       navigate('/')
       return
     }
@@ -35,27 +36,18 @@ export function AuthSignInPage() {
         password,
         callbackURL: '/',
       })
+      queueFlashToast({ tone: 'success', title: '登入成功', description: '歡迎回來，旅程資料已同步。' })
+      navigate('/', { replace: true })
     } catch {
-      setStatus('登入流程需等待 Better Auth 後端完成後才能正常運作。')
-    }
-  }
-
-  async function handleGoogleSignIn() {
-    setStatus('')
-
-    try {
-      await authClient.signIn.social({
-        provider: 'google',
-        callbackURL: '/',
-      })
-    } catch {
-      setStatus('Google 登入需等待 Better Auth 與 Google Provider 完成設定。')
+      showError('登入失敗', '登入流程尚未完成，或目前帳號服務不可用。')
+    } finally {
+      setEmailPending(false)
     }
   }
 
   return (
     <div className="space-y-5 pb-4">
-      <MobileHeader title="登入" backTo="/" />
+      <MobileHeader title="登入" />
 
       <Card className="border-none bg-[linear-gradient(180deg,rgba(255,253,252,0.96),rgba(240,247,246,0.92))] shadow-float">
         <CardContent className="space-y-5 pt-5">
@@ -63,11 +55,6 @@ export function AuthSignInPage() {
             <p className="text-sm text-muted-foreground">帳號同步</p>
             <h2 className="mt-1 text-2xl font-semibold text-foreground">登入後可跨裝置使用旅程資料</h2>
           </div>
-
-          <Button variant="outline" className="w-full gap-2" onClick={handleGoogleSignIn}>
-            <GoogleIcon />
-            使用 Google 登入
-          </Button>
 
           <div className="space-y-3">
             <div className="flex h-12 items-center gap-3 rounded-2xl border border-border bg-white px-4 focus-within:border-primary">
@@ -91,12 +78,10 @@ export function AuthSignInPage() {
             </div>
           </div>
 
-          <Button className="w-full gap-2" onClick={handleEmailSignIn} disabled={!email || !password}>
+          <Button className="w-full gap-2" onClick={handleEmailSignIn} disabled={!email || !password || emailPending}>
             <ArrowRight className="h-4 w-4" />
-            使用 Email 登入
+            {emailPending ? '登入中...' : '使用 Email 登入'}
           </Button>
-
-          {status ? <p className="text-sm text-muted-foreground">{status}</p> : null}
 
           <p className="text-sm text-muted-foreground">
             還沒有帳號？ <Link to="/register" className="font-medium text-primary">建立帳號</Link>

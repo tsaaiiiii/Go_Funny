@@ -9,7 +9,9 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { DatePickerField } from '@/components/ui/date-picker-field'
 import { EmptyState } from '@/components/ui/empty-state'
+import { LoadingState } from '@/components/ui/loading-state'
 import { SectionHeading } from '@/components/ui/section-heading'
+import { queueFlashToast, useToast } from '@/components/ui/toast'
 import { useGetTrips, useGetTripById } from '@/api/generated/trips/trips'
 import { useCreateTripExpense } from '@/api/generated/expenses/expenses'
 import { hasStatus } from '@/lib/api-response'
@@ -20,10 +22,11 @@ export function ExpenseCreatePage() {
   const { tripId } = useParams()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
-  const { data: tripsResponse } = useGetTrips()
+  const { showError } = useToast()
+  const { data: tripsResponse, isPending: tripsPending } = useGetTrips()
   const trips = hasStatus(tripsResponse, 200) ? tripsResponse.data : []
   const [selectedTripId, setSelectedTripId] = useState(tripId ?? '')
-  const { data: tripResponse } = useGetTripById(selectedTripId, { query: { enabled: !!selectedTripId } })
+  const { data: tripResponse, isPending: tripPending } = useGetTripById(selectedTripId, { query: { enabled: !!selectedTripId } })
   const trip = hasStatus(tripResponse, 200) ? tripResponse.data : null
   const createExpenseMutation = useCreateTripExpense()
 
@@ -36,8 +39,12 @@ export function ExpenseCreatePage() {
   const [selectedMembers, setSelectedMembers] = useState<string[]>(trip?.memberships.map((m) => m.id) ?? [])
   const [customAmounts, setCustomAmounts] = useState<Record<string, string>>({})
 
+  if (tripsPending || (selectedTripId && tripPending)) {
+    return <LoadingState title="支出表單載入中" description="正在準備旅程與成員資料。" />
+  }
+
   if (!trip) {
-    return null
+    return <LoadingState title="找不到旅程資料" description="請稍後重試，或回首頁重新選擇旅程。" compact />
   }
 
   useEffect(() => {
@@ -65,22 +72,30 @@ export function ExpenseCreatePage() {
 
   async function handleSubmit() {
     if (!trip) return
-    if (!title.trim() || parsedAmount <= 0 || selectedMembers.length === 0 || !customSplitValid) return
+    if (!title.trim() || parsedAmount <= 0 || selectedMembers.length === 0 || !customSplitValid) {
+      showError('無法建立支出', '請先確認名稱、金額與分攤設定是否完整。')
+      return
+    }
 
-    await createExpenseMutation.mutateAsync({
-      tripId: trip.id,
-      data: {
-        title: title.trim(),
-        amount: parsedAmount,
-        date,
-        splitType: splitType as 'equal_all' | 'equal_selected' | 'custom',
-        payerMembershipId: trip.mode === 'expense' ? payerMembershipId : undefined,
-        note: note.trim() || undefined,
-      },
-    })
+    try {
+      await createExpenseMutation.mutateAsync({
+        tripId: trip.id,
+        data: {
+          title: title.trim(),
+          amount: parsedAmount,
+          date,
+          splitType: splitType as 'equal_all' | 'equal_selected' | 'custom',
+          payerMembershipId: trip.mode === 'expense' ? payerMembershipId : undefined,
+          note: note.trim() || undefined,
+        },
+      })
 
-    await queryClient.invalidateQueries({ queryKey: [`/trips/${trip.id}`] })
-    navigate(`/trip/${trip.id}`)
+      await queryClient.invalidateQueries({ queryKey: [`/trips/${trip.id}`] })
+      queueFlashToast({ tone: 'success', title: '支出已建立', description: '這筆紀錄已加入旅程明細。' })
+      navigate(`/trip/${trip.id}`)
+    } catch {
+      showError('建立支出失敗', '請稍後再試。')
+    }
   }
 
   return (
@@ -312,9 +327,9 @@ export function ExpenseCreatePage() {
         </>
       )}
 
-      <Button size="lg" className="w-full gap-2" onClick={handleSubmit} disabled={!title.trim() || parsedAmount <= 0 || selectedMembers.length === 0 || !customSplitValid}>
+      <Button size="lg" className="w-full gap-2" onClick={handleSubmit} disabled={!title.trim() || parsedAmount <= 0 || selectedMembers.length === 0 || !customSplitValid || createExpenseMutation.isPending}>
         <Plus className="h-4 w-4" />
-        儲存這筆支出
+        {createExpenseMutation.isPending ? '儲存中...' : '儲存這筆支出'}
       </Button>
     </div>
   )

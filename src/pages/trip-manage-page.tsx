@@ -4,14 +4,19 @@ import { Link, useParams } from 'react-router-dom'
 import { MobileHeader } from '@/components/layout/mobile-header'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
+import { LoadingState } from '@/components/ui/loading-state'
 import { SectionHeading } from '@/components/ui/section-heading'
 import { useGetTripById } from '@/api/generated/trips/trips'
 import { hasStatus } from '@/lib/api-response'
 
 export function TripManagePage() {
   const { tripId } = useParams()
-  const { data: tripResponse } = useGetTripById(tripId!)
+  const { data: tripResponse, isPending } = useGetTripById(tripId!)
   const trip = hasStatus(tripResponse, 200) ? tripResponse.data : null
+
+  if (isPending) {
+    return <LoadingState title="旅程管理載入中" description="正在整理旅程設定與管理項目。" />
+  }
 
   if (!trip) {
     return null

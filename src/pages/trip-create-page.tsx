@@ -10,8 +10,10 @@ import { Button } from '@/components/ui/button'
 import { Calendar } from '@/components/ui/calendar'
 import { Card, CardContent } from '@/components/ui/card'
 import { MobileHeader } from '@/components/layout/mobile-header'
+import { LoadingState } from '@/components/ui/loading-state'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { SectionHeading } from '@/components/ui/section-heading'
+import { queueFlashToast, useToast } from '@/components/ui/toast'
 import { useGetTripById, useCreateTrip, useUpdateTrip, useDeleteTrip } from '@/api/generated/trips/trips'
 import { hasStatus } from '@/lib/api-response'
 import { getTodayInputValue } from '@/lib/date'
@@ -54,9 +56,15 @@ export function TripCreatePage() {
   const { tripId } = useParams()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
-  const { data: tripResponse } = useGetTripById(tripId!, { query: { enabled: !!tripId } })
+  const { showError, showSuccess } = useToast()
+  const { data: tripResponse, isPending } = useGetTripById(tripId!, { query: { enabled: !!tripId } })
   const editingTrip = hasStatus(tripResponse, 200) ? tripResponse.data : null
+  const isEditingRoute = Boolean(tripId)
   const isEditing = Boolean(tripId && editingTrip)
+
+  if (isEditingRoute && isPending) {
+    return <LoadingState title="旅程資料載入中" description="正在準備這趟旅程的編輯內容。" />
+  }
 
   const createTripMutation = useCreateTrip()
   const updateTripMutation = useUpdateTrip()
@@ -67,7 +75,6 @@ export function TripCreatePage() {
   const [startDate, setStartDate] = useState(editingTrip?.startDate ? new Date(editingTrip.startDate).toISOString().slice(0, 10) : getTodayInputValue())
   const [endDate, setEndDate] = useState(editingTrip?.endDate ? new Date(editingTrip.endDate).toISOString().slice(0, 10) : getTodayInputValue())
   const [mode, setMode] = useState<TripMode>(editingTrip?.mode ?? 'expense')
-  const [saveFeedback, setSaveFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
   const [dateRangeOpen, setDateRangeOpen] = useState(false)
   const [calendarMonth, setCalendarMonth] = useState(() => parseISO(getTodayInputValue()))
   const [calendarRange, setCalendarRange] = useState<DateRange | undefined>()
@@ -81,12 +88,6 @@ export function TripCreatePage() {
     setEndDate(new Date(editingTrip.endDate).toISOString().slice(0, 10))
     setMode(editingTrip.mode)
   }, [editingTrip])
-
-  useEffect(() => {
-    if (!saveFeedback) return
-    const timeoutId = window.setTimeout(() => setSaveFeedback(null), 2000)
-    return () => window.clearTimeout(timeoutId)
-  }, [saveFeedback])
 
   const submitLabel = isEditing ? '儲存變更' : '建立旅程'
   const tripLengthLabel = getTripLengthLabel(startDate, endDate)
@@ -141,7 +142,7 @@ export function TripCreatePage() {
 
   async function handleSubmit() {
     if (!title.trim()) {
-      setSaveFeedback({ type: 'error', message: '儲存失敗：請先輸入旅程名稱。' })
+      showError('無法儲存旅程', '請先輸入旅程名稱。')
       return
     }
 
@@ -165,9 +166,9 @@ export function TripCreatePage() {
           },
         })
         await queryClient.invalidateQueries({ queryKey: ['/trips'] })
-        setSaveFeedback({ type: 'success', message: '儲存成功。' })
+        showSuccess('旅程已更新')
       } catch {
-        setSaveFeedback({ type: 'error', message: '儲存失敗，請稍後再試。' })
+        showError('儲存失敗', '請稍後再試。')
       }
       return
     }
@@ -186,10 +187,10 @@ export function TripCreatePage() {
         throw new Error('Create trip failed')
       }
       await queryClient.invalidateQueries({ queryKey: ['/trips'] })
-      setSaveFeedback(null)
+      queueFlashToast({ tone: 'success', title: '旅程已建立', description: '接著就能邀請旅伴加入。' })
       navigate(`/trip/${result.data.id}/members`)
     } catch {
-      setSaveFeedback({ type: 'error', message: '建立失敗，請稍後再試。' })
+      showError('建立旅程失敗', '請稍後再試。')
     }
   }
 
@@ -199,9 +200,10 @@ export function TripCreatePage() {
     try {
       await deleteTripMutation.mutateAsync({ tripId: editingTrip.id })
       await queryClient.invalidateQueries({ queryKey: ['/trips'] })
+      queueFlashToast({ tone: 'success', title: '旅程已刪除' })
       navigate('/')
     } catch {
-      setSaveFeedback({ type: 'error', message: '刪除失敗，請稍後再試。' })
+      showError('刪除旅程失敗', '請稍後再試。')
     }
   }
 
@@ -332,6 +334,7 @@ export function TripCreatePage() {
           <button
             type="button"
             onClick={handleDelete}
+            disabled={deleteTripMutation.isPending}
             className="inline-flex h-12 w-12 items-center justify-center rounded-full border border-[#EBCACA] bg-[#FFF5F5] text-[#C96B6B]"
           >
             <Trash2 className="h-4 w-4" />
@@ -343,24 +346,11 @@ export function TripCreatePage() {
         >
           取消
         </Link>
-        <Button size="lg" className="flex-1" onClick={handleSubmit} disabled={!title.trim()}>
-          {submitLabel}
+        <Button size="lg" className="flex-1" onClick={handleSubmit} disabled={!title.trim() || createTripMutation.isPending || updateTripMutation.isPending}>
+          {createTripMutation.isPending || updateTripMutation.isPending ? '儲存中...' : submitLabel}
         </Button>
       </div>
 
-      {isEditing && saveFeedback ? (
-        <div className="pointer-events-none fixed right-4 top-4 z-30 sm:right-6 sm:top-6">
-          <div
-            className={`rounded-xl px-4 py-2.5 text-sm shadow-soft ${
-              saveFeedback.type === 'success'
-                ? 'border border-[#3C8F67] bg-[#3C8F67] text-white shadow-[0_8px_24px_rgba(60,143,103,0.35)]'
-                : 'border border-[#C25757] bg-[#C25757] text-white shadow-[0_8px_24px_rgba(194,87,87,0.35)]'
-            }`}
-          >
-            {saveFeedback.message}
-          </div>
-        </div>
-      ) : null}
     </div>
   )
 }

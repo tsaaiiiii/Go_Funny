@@ -9,7 +9,9 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { DatePickerField } from '@/components/ui/date-picker-field'
 import { EmptyState } from '@/components/ui/empty-state'
+import { LoadingState } from '@/components/ui/loading-state'
 import { SectionHeading } from '@/components/ui/section-heading'
+import { queueFlashToast, useToast } from '@/components/ui/toast'
 import { useGetTripById } from '@/api/generated/trips/trips'
 import { useCreateTripContribution } from '@/api/generated/contributions/contributions'
 import { hasStatus } from '@/lib/api-response'
@@ -20,15 +22,20 @@ export function ContributionCreatePage() {
   const { tripId } = useParams()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
-  const { data: tripResponse } = useGetTripById(tripId!)
+  const { showError } = useToast()
+  const { data: tripResponse, isPending } = useGetTripById(tripId!)
   const trip = hasStatus(tripResponse, 200) ? tripResponse.data : null
   const createContributionMutation = useCreateTripContribution()
   const [selectedMembershipId, setSelectedMembershipId] = useState(trip?.memberships[0]?.id ?? '')
   const [amount, setAmount] = useState('3000')
   const [date, setDate] = useState(getTodayInputValue)
 
+  if (isPending) {
+    return <LoadingState title="公積金表單載入中" description="正在準備旅程與成員資料。" />
+  }
+
   if (!trip) {
-    return null
+    return <LoadingState title="找不到旅程資料" description="請稍後重試，或回首頁重新選擇旅程。" compact />
   }
 
   const currentTrip = trip
@@ -37,18 +44,26 @@ export function ContributionCreatePage() {
 
   async function handleSubmit() {
     const parsedAmount = Number(amount)
-    if (!selectedMembershipId || Number.isNaN(parsedAmount) || parsedAmount <= 0) return
+    if (!selectedMembershipId || Number.isNaN(parsedAmount) || parsedAmount <= 0) {
+      showError('無法建立公積金紀錄', '請先確認成員與金額是否正確。')
+      return
+    }
 
-    await createContributionMutation.mutateAsync({
-      tripId: currentTrip.id,
-      data: {
-        membershipId: selectedMembershipId,
-        amount: parsedAmount,
-        date,
-      },
-    })
-    await queryClient.invalidateQueries({ queryKey: [`/trips/${currentTrip.id}`] })
-    navigate(`/trip/${currentTrip.id}`)
+    try {
+      await createContributionMutation.mutateAsync({
+        tripId: currentTrip.id,
+        data: {
+          membershipId: selectedMembershipId,
+          amount: parsedAmount,
+          date,
+        },
+      })
+      await queryClient.invalidateQueries({ queryKey: [`/trips/${currentTrip.id}`] })
+      queueFlashToast({ tone: 'success', title: '公積金已記錄', description: '共同池金額已更新。' })
+      navigate(`/trip/${currentTrip.id}`)
+    } catch {
+      showError('建立公積金失敗', '請稍後再試。')
+    }
   }
 
   return (
@@ -130,9 +145,9 @@ export function ContributionCreatePage() {
         </Card>
       )}
 
-      <Button size="lg" variant="secondary" className="w-full gap-2" onClick={handleSubmit} disabled={!selectedMembershipId || Number(amount) <= 0}>
+      <Button size="lg" variant="secondary" className="w-full gap-2" onClick={handleSubmit} disabled={!selectedMembershipId || Number(amount) <= 0 || createContributionMutation.isPending}>
         <Plus className="h-4 w-4" />
-        儲存存入紀錄
+        {createContributionMutation.isPending ? '儲存中...' : '儲存存入紀錄'}
       </Button>
     </div>
   )

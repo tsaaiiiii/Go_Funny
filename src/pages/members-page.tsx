@@ -8,7 +8,9 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { EmptyState } from '@/components/ui/empty-state'
+import { LoadingState } from '@/components/ui/loading-state'
 import { SectionHeading } from '@/components/ui/section-heading'
+import { useToast } from '@/components/ui/toast'
 import { useGetTripById } from '@/api/generated/trips/trips'
 import { useDeleteTripMember } from '@/api/generated/members/members'
 import { useCreateTripInvitation } from '@/api/generated/invitations/invitations'
@@ -17,15 +19,19 @@ import { hasStatus } from '@/lib/api-response'
 export function MembersPage() {
   const { tripId } = useParams()
   const queryClient = useQueryClient()
-  const { data: tripResponse } = useGetTripById(tripId!)
+  const { showError, showSuccess } = useToast()
+  const { data: tripResponse, isPending } = useGetTripById(tripId!)
   const trip = hasStatus(tripResponse, 200) ? tripResponse.data : null
   const deleteMemberMutation = useDeleteTripMember()
   const createInvitationMutation = useCreateTripInvitation()
   const [inviteToken, setInviteToken] = useState<string | null>(null)
-  const [copied, setCopied] = useState(false)
+
+  if (isPending) {
+    return <LoadingState title="成員資料載入中" description="正在整理旅伴名單與邀請資訊。" />
+  }
 
   if (!trip) {
-    return null
+    return <LoadingState title="找不到旅程資料" description="請稍後重試，或回首頁重新選擇旅程。" compact />
   }
 
   const hasExpenseRecord = (membershipId: string) => {
@@ -37,14 +43,26 @@ export function MembersPage() {
   }
 
   async function handleDeleteMember(memberId: string) {
-    await deleteMemberMutation.mutateAsync({ tripId: tripId!, memberId })
-    await queryClient.invalidateQueries({ queryKey: [`/trips/${tripId}`] })
+    try {
+      await deleteMemberMutation.mutateAsync({ tripId: tripId!, memberId })
+      await queryClient.invalidateQueries({ queryKey: [`/trips/${tripId}`] })
+      showSuccess('已移除成員')
+    } catch {
+      showError('移除成員失敗', '請稍後再試。')
+    }
   }
 
   async function handleCreateInviteLink() {
-    const result = await createInvitationMutation.mutateAsync({ tripId: tripId! })
-    if (result.status === 201) {
-      setInviteToken(result.data.token)
+    try {
+      const result = await createInvitationMutation.mutateAsync({ tripId: tripId! })
+      if (result.status === 201) {
+        setInviteToken(result.data.token)
+        showSuccess('邀請連結已建立', '你可以直接複製連結分享給旅伴。')
+      } else {
+        showError('建立邀請失敗', '請稍後再試。')
+      }
+    } catch {
+      showError('建立邀請失敗', '請稍後再試。')
     }
   }
 
@@ -54,10 +72,9 @@ export function MembersPage() {
 
     try {
       await navigator.clipboard.writeText(inviteLink)
-      setCopied(true)
-      window.setTimeout(() => setCopied(false), 1800)
+      showSuccess('已複製邀請連結')
     } catch {
-      setCopied(false)
+      showError('複製失敗', '請檢查瀏覽器是否允許剪貼簿權限。')
     }
   }
 
@@ -96,12 +113,12 @@ export function MembersPage() {
               </div>
               <Button variant="outline" className="w-full gap-2" onClick={handleCopyInviteLink}>
                 <Copy className="h-4 w-4" />
-                {copied ? '已複製連結' : '複製邀請連結'}
+                複製邀請連結
               </Button>
             </>
           ) : (
-            <Button className="w-full" onClick={handleCreateInviteLink}>
-              產生邀請連結
+            <Button className="w-full" onClick={handleCreateInviteLink} disabled={createInvitationMutation.isPending}>
+              {createInvitationMutation.isPending ? '建立中...' : '產生邀請連結'}
             </Button>
           )}
         </CardContent>
@@ -138,9 +155,9 @@ export function MembersPage() {
                 <button
                   type="button"
                   onClick={() => handleDeleteMember(member.id)}
-                  disabled={locked}
+                  disabled={locked || deleteMemberMutation.isPending}
                   className={`inline-flex h-10 w-10 items-center justify-center rounded-full border ${
-                    locked
+                    locked || deleteMemberMutation.isPending
                       ? 'cursor-not-allowed border-border bg-[#F4F7F8] text-muted-foreground'
                       : 'border-[#EBCACA] bg-[#FFF5F5] text-[#C96B6B]'
                   }`}
