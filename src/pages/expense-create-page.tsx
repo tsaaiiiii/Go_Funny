@@ -21,7 +21,7 @@ export function ExpenseCreatePage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const { data: tripsResponse } = useGetTrips()
-  const trips = tripsResponse?.data ?? []
+  const trips = hasStatus(tripsResponse, 200) ? tripsResponse.data : []
   const [selectedTripId, setSelectedTripId] = useState(tripId ?? '')
   const { data: tripResponse } = useGetTripById(selectedTripId, { query: { enabled: !!selectedTripId } })
   const trip = hasStatus(tripResponse, 200) ? tripResponse.data : null

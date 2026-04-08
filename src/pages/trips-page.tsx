@@ -1,7 +1,7 @@
-import { CalendarDays, Pencil, PiggyBank, Plane, SquarePen, Users, Wallet, X } from 'lucide-react'
+import { CalendarDays, LogOut, Pencil, PiggyBank, Plane, SquarePen, Users, Wallet, X } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 
 import { MobileHeader } from '@/components/layout/mobile-header'
 import { EmptyState } from '@/components/ui/empty-state'
@@ -10,18 +10,21 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { SectionHeading } from '@/components/ui/section-heading'
 import { useGetTrips } from '@/api/generated/trips/trips'
+import { hasStatus } from '@/lib/api-response'
 import { authClient } from '@/lib/auth-client'
 import { formatCurrency } from '@/lib/currency'
-import { MockSession, readMockSession } from '@/lib/mock-session'
+import { clearMockSession, MockSession, readMockSession, writeMockSession } from '@/lib/mock-session'
 
 export function TripsPage() {
+  const navigate = useNavigate()
   const { data: session } = authClient.useSession()
   const { data: tripsResponse } = useGetTrips()
-  const trips = tripsResponse?.data ?? []
+  const trips = hasStatus(tripsResponse, 200) ? tripsResponse.data : []
   const [mockSession, setMockSession] = useState<MockSession | null>(null)
   const [profileModalOpen, setProfileModalOpen] = useState(false)
   const [draftName, setDraftName] = useState('')
   const [profileStatus, setProfileStatus] = useState('')
+  const [signOutPending, setSignOutPending] = useState(false)
   const sortedTrips = useMemo(
     () =>
       trips
@@ -60,7 +63,7 @@ export function TripsPage() {
           name: nextName,
         },
       }
-      window.localStorage.setItem('mock-auth-session', JSON.stringify(nextSession))
+      writeMockSession(nextSession)
       setMockSession(nextSession)
       setProfileStatus('更新成功')
       window.setTimeout(() => setProfileModalOpen(false), 400)
@@ -68,6 +71,26 @@ export function TripsPage() {
     }
 
     setProfileStatus('目前僅 mock 登入可直接修改名稱')
+  }
+
+  async function handleSignOut() {
+    setSignOutPending(true)
+    setProfileStatus('')
+
+    try {
+      if (session?.user) {
+        await authClient.signOut()
+      }
+
+      clearMockSession()
+      setMockSession(null)
+      setProfileModalOpen(false)
+      navigate('/login', { replace: true })
+    } catch {
+      setProfileStatus('登出失敗，請稍後再試')
+    } finally {
+      setSignOutPending(false)
+    }
   }
 
   return (
@@ -122,6 +145,11 @@ export function TripsPage() {
               <p className="text-xs text-muted-foreground">名稱</p>
               <p className="mt-1 text-base font-semibold text-foreground">{currentUser.name || '未設定名稱'}</p>
             </div>
+            <Button variant="outline" className="w-full gap-2" onClick={handleSignOut} disabled={signOutPending}>
+              <LogOut className="h-4 w-4" />
+              {signOutPending ? '登出中...' : '登出'}
+            </Button>
+            {profileStatus ? <p className="text-sm text-muted-foreground">{profileStatus}</p> : null}
           </CardContent>
         </Card>
       ) : (

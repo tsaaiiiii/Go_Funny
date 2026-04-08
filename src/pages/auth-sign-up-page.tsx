@@ -1,10 +1,11 @@
-import { ArrowRight, Chrome, LockKeyhole, Mail, UserRound } from 'lucide-react'
+import { ArrowRight, LockKeyhole, Mail, UserRound } from 'lucide-react'
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 
 import { MobileHeader } from '@/components/layout/mobile-header'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
+import { GoogleIcon } from '@/components/ui/google-icon'
 import { authClient } from '@/lib/auth-client'
 
 export function AuthSignUpPage() {
@@ -53,7 +54,7 @@ export function AuthSignUpPage() {
           </div>
 
           <Button variant="outline" className="w-full gap-2" onClick={handleGoogleSignUp}>
-            <Chrome className="h-4 w-4" />
+            <GoogleIcon />
             使用 Google 註冊
           </Button>
 

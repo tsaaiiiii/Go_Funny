@@ -8,10 +8,9 @@ Better Auth endpoints under `/api/auth/*` are intentionally excluded because the
  * OpenAPI spec version: 0.2.0
  */
 
-export type TripMode = typeof TripMode[keyof typeof TripMode];
-
-
-export const TripMode = {
-  expense: 'expense',
-  pool: 'pool',
-} as const;
+export interface TripMembership {
+  id: string;
+  tripId: string;
+  userId: string;
+  createdAt: string;
+}

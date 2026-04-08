@@ -6,6 +6,7 @@ import { MobileHeader } from '@/components/layout/mobile-header'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { EmptyState } from '@/components/ui/empty-state'
+import { hasStatus } from '@/lib/api-response'
 
 interface NoTripPageProps {
   title: string
@@ -25,7 +26,7 @@ export function NoTripPage({
   resolveTripRoute,
 }: NoTripPageProps) {
   const { data: tripsResponse, isPending } = useGetTrips()
-  const trips = tripsResponse?.data ?? []
+  const trips = hasStatus(tripsResponse, 200) ? tripsResponse.data : []
   const latestTripId = useMemo(() => {
     const latestTrip = trips
       .slice()

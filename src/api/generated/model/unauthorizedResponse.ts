@@ -7,11 +7,9 @@ Better Auth endpoints under `/api/auth/*` are intentionally excluded because the
 
  * OpenAPI spec version: 0.2.0
  */
+import type { ErrorResponse } from './errorResponse';
 
-export type TripMode = typeof TripMode[keyof typeof TripMode];
-
-
-export const TripMode = {
-  expense: 'expense',
-  pool: 'pool',
-} as const;
+/**
+ * Authentication required
+ */
+export type UnauthorizedResponse = ErrorResponse;

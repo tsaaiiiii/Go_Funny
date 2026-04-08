@@ -42,7 +42,7 @@ export function MembersPage() {
   }
 
   async function handleCreateInviteLink() {
-    const result = await createInvitationMutation.mutateAsync({ tripId: tripId!, data: {} })
+    const result = await createInvitationMutation.mutateAsync({ tripId: tripId! })
     if (result.status === 201) {
       setInviteToken(result.data.token)
     }

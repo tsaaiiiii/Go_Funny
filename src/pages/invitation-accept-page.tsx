@@ -1,4 +1,4 @@
-import { ArrowRight, CheckCircle2, Chrome, Link2, MapPin, ShieldCheck, Sparkles, Users } from 'lucide-react'
+import { ArrowRight, CheckCircle2, Link2, MapPin, ShieldCheck, Sparkles, Users } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 
@@ -6,6 +6,7 @@ import { MobileHeader } from '@/components/layout/mobile-header'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
+import { GoogleIcon } from '@/components/ui/google-icon'
 import { authClient } from '@/lib/auth-client'
 
 export function InvitationAcceptPage() {
@@ -85,7 +86,7 @@ export function InvitationAcceptPage() {
           </div>
 
           <Button className="w-full gap-2" onClick={handleContinueWithGoogle}>
-            <Chrome className="h-4 w-4" />
+            <GoogleIcon />
             使用 Google 繼續
           </Button>
 

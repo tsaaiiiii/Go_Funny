@@ -39,3 +39,11 @@ export function writeMockSession(session: MockSession) {
 
   window.localStorage.setItem(storageKey, JSON.stringify(session))
 }
+
+export function clearMockSession() {
+  if (typeof window === 'undefined') {
+    return
+  }
+
+  window.localStorage.removeItem(storageKey)
+}

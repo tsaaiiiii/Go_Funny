@@ -3,12 +3,13 @@ import { useMemo } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 
 import { useGetTrips } from '@/api/generated/trips/trips'
+import { hasStatus } from '@/lib/api-response'
 import { cn } from '@/lib/utils'
 
 export function BottomNav() {
   const location = useLocation()
   const { data: tripsResponse } = useGetTrips()
-  const trips = tripsResponse?.data ?? []
+  const trips = hasStatus(tripsResponse, 200) ? tripsResponse.data : []
   const tripSegment = location.pathname.split('/')[2]
   const latestTripId = useMemo(() => {
     const latestTrip = trips

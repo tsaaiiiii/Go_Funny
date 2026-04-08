@@ -14,6 +14,10 @@ export default defineConfig({
       prettier: true,
       baseUrl: '',
       override: {
+        mutator: {
+          path: './src/api/custom-fetch.ts',
+          name: 'customFetch',
+        },
         query: {
           useQuery: true,
           useSuspenseQuery: false,

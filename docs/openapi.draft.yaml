@@ -1,11 +1,16 @@
 openapi: 3.1.0
 info:
   title: Go Funny API
-  version: 0.1.0
-  summary: MVP API contract for trip expense sharing.
+  version: 0.2.0
+  summary: Backend API contract for Go Funny trip collaboration and settlement.
+  description: |
+    This spec covers the app's business APIs.
+    Better Auth endpoints under `/api/auth/*` are intentionally excluded because the frontend uses the Better Auth client directly.
 servers:
   - url: http://localhost:3000
     description: Local development server
+  - url: https://go-funny-backend.onrender.com
+    description: Production server
 tags:
   - name: Trips
   - name: Members
@@ -13,13 +18,15 @@ tags:
   - name: Contributions
   - name: Settlement
   - name: Invitations
+security:
+  - cookieAuth: []
 
 paths:
   /trips:
     get:
       tags: [Trips]
       operationId: getTrips
-      summary: Get trip list
+      summary: Get trips visible to the current user
       responses:
         '200':
           description: Trip list
@@ -29,10 +36,12 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/Trip'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
     post:
       tags: [Trips]
       operationId: createTrip
-      summary: Create trip
+      summary: Create a trip and join it as the first member
       requestBody:
         required: true
         content:
@@ -48,12 +57,14 @@ paths:
                 $ref: '#/components/schemas/TripSummary'
         '400':
           $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
 
   /trips/{tripId}:
     get:
       tags: [Trips]
       operationId: getTripById
-      summary: Get trip detail with members, expenses, contributions
+      summary: Get trip detail if the current user is a member
       parameters:
         - $ref: '#/components/parameters/TripId'
       responses:
@@ -63,12 +74,14 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Trip'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
         '404':
           $ref: '#/components/responses/NotFound'
     patch:
       tags: [Trips]
       operationId: updateTrip
-      summary: Update trip
+      summary: Update trip metadata
       parameters:
         - $ref: '#/components/parameters/TripId'
       requestBody:
@@ -86,17 +99,21 @@ paths:
                 $ref: '#/components/schemas/TripSummary'
         '400':
           $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
         '404':
           $ref: '#/components/responses/NotFound'
     delete:
       tags: [Trips]
       operationId: deleteTrip
-      summary: Delete trip
+      summary: Delete a trip
       parameters:
         - $ref: '#/components/parameters/TripId'
       responses:
         '204':
           description: Trip deleted
+        '401':
+          $ref: '#/components/responses/Unauthorized'
         '404':
           $ref: '#/components/responses/NotFound'
 
@@ -104,7 +121,7 @@ paths:
     get:
       tags: [Members]
       operationId: getTripMembers
-      summary: Get member list
+      summary: Get trip members
       parameters:
         - $ref: '#/components/parameters/TripId'
       responses:
@@ -116,6 +133,8 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/Member'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
         '404':
           $ref: '#/components/responses/NotFound'
 
@@ -123,13 +142,17 @@ paths:
     delete:
       tags: [Members]
       operationId: deleteTripMember
-      summary: Delete member
+      summary: Delete a trip member
       parameters:
         - $ref: '#/components/parameters/TripId'
         - $ref: '#/components/parameters/MemberId'
       responses:
         '204':
           description: Member deleted
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
         '404':
           $ref: '#/components/responses/NotFound'
 
@@ -137,7 +160,7 @@ paths:
     get:
       tags: [Expenses]
       operationId: getTripExpenses
-      summary: Get expense list
+      summary: Get trip expenses
       parameters:
         - $ref: '#/components/parameters/TripId'
       responses:
@@ -149,12 +172,14 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/Expense'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
         '404':
           $ref: '#/components/responses/NotFound'
     post:
       tags: [Expenses]
       operationId: createTripExpense
-      summary: Create expense
+      summary: Create an expense
       parameters:
         - $ref: '#/components/parameters/TripId'
       requestBody:
@@ -172,6 +197,8 @@ paths:
                 $ref: '#/components/schemas/Expense'
         '400':
           $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
         '404':
           $ref: '#/components/responses/NotFound'
 
@@ -179,13 +206,17 @@ paths:
     delete:
       tags: [Expenses]
       operationId: deleteTripExpense
-      summary: Delete expense
+      summary: Delete an expense
       parameters:
         - $ref: '#/components/parameters/TripId'
         - $ref: '#/components/parameters/ExpenseId'
       responses:
         '204':
           description: Expense deleted
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
         '404':
           $ref: '#/components/responses/NotFound'
 
@@ -193,7 +224,7 @@ paths:
     get:
       tags: [Contributions]
       operationId: getTripContributions
-      summary: Get contribution list
+      summary: Get trip contributions
       parameters:
         - $ref: '#/components/parameters/TripId'
       responses:
@@ -205,12 +236,14 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/Contribution'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
         '404':
           $ref: '#/components/responses/NotFound'
     post:
       tags: [Contributions]
       operationId: createTripContribution
-      summary: Create contribution
+      summary: Create a contribution
       parameters:
         - $ref: '#/components/parameters/TripId'
       requestBody:
@@ -228,6 +261,8 @@ paths:
                 $ref: '#/components/schemas/Contribution'
         '400':
           $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
         '404':
           $ref: '#/components/responses/NotFound'
 
@@ -245,6 +280,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Settlement'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
         '404':
           $ref: '#/components/responses/NotFound'
 
@@ -252,15 +289,9 @@ paths:
     post:
       tags: [Invitations]
       operationId: createTripInvitation
-      summary: Create invitation link
+      summary: Create an invitation link for a trip
       parameters:
         - $ref: '#/components/parameters/TripId'
-      requestBody:
-        required: false
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/CreateInvitationRequest'
       responses:
         '201':
           description: Invitation created
@@ -270,6 +301,8 @@ paths:
                 $ref: '#/components/schemas/Invitation'
         '400':
           $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
         '404':
           $ref: '#/components/responses/NotFound'
 
@@ -278,6 +311,7 @@ paths:
       tags: [Invitations]
       operationId: getInvitationByToken
       summary: Get invitation info by token
+      security: []
       parameters:
         - $ref: '#/components/parameters/InvitationToken'
       responses:
@@ -294,28 +328,31 @@ paths:
     post:
       tags: [Invitations]
       operationId: acceptInvitation
-      summary: Accept invitation and join trip
+      summary: Accept an invitation and join the trip
       parameters:
         - $ref: '#/components/parameters/InvitationToken'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/AcceptInvitationRequest'
       responses:
         '201':
-          description: Invitation accepted, membership created
+          description: Membership created
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Member'
+                $ref: '#/components/schemas/TripMembership'
         '400':
           $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
         '404':
           $ref: '#/components/responses/NotFound'
 
 components:
+  securitySchemes:
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: session_token
+      description: Better Auth session cookie
+
   parameters:
     TripId:
       name: tripId
@@ -349,6 +386,12 @@ components:
         application/json:
           schema:
             $ref: '#/components/schemas/ErrorResponse'
+    Unauthorized:
+      description: Authentication required
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
     NotFound:
       description: Resource not found
       content:
@@ -365,23 +408,37 @@ components:
       type: string
       enum: [equal_all, equal_selected, custom]
 
+    InvitationRole:
+      type: string
+      enum: [editor]
+
     User:
       type: object
-      required: [id, email, name, createdAt]
+      required: [id, email, name, emailVerified, createdAt, updatedAt]
       properties:
         id:
           type: string
         email:
           type: string
+          format: email
         name:
           type: string
+        emailVerified:
+          type: boolean
+        image:
+          type:
+            - string
+            - 'null'
         createdAt:
           type: string
           format: date-time
+        updatedAt:
+          type: string
+          format: date-time
 
-    Member:
+    TripMembership:
       type: object
-      required: [id, tripId, userId, createdAt, user]
+      required: [id, tripId, userId, createdAt]
       properties:
         id:
           type: string
@@ -392,8 +449,15 @@ components:
         createdAt:
           type: string
           format: date-time
-        user:
-          $ref: '#/components/schemas/User'
+
+    Member:
+      allOf:
+        - $ref: '#/components/schemas/TripMembership'
+        - type: object
+          required: [user]
+          properties:
+            user:
+              $ref: '#/components/schemas/User'
 
     ExpenseSplit:
       type: object
@@ -429,9 +493,13 @@ components:
         splitType:
           $ref: '#/components/schemas/SplitType'
         payerMembershipId:
-          type: [string, 'null']
+          type:
+            - string
+            - 'null'
         note:
-          type: [string, 'null']
+          type:
+            - string
+            - 'null'
         createdAt:
           type: string
           format: date-time
@@ -494,23 +562,32 @@ components:
         token:
           type: string
         role:
-          type: string
-          enum: [editor]
+          $ref: '#/components/schemas/InvitationRole'
         maxUses:
-          type: [integer, 'null']
+          type:
+            - integer
+            - 'null'
         usedCount:
           type: integer
         expiresAt:
-          type: [string, 'null']
+          type:
+            - string
+            - 'null'
           format: date-time
         acceptedAt:
-          type: [string, 'null']
+          type:
+            - string
+            - 'null'
           format: date-time
         revokedAt:
-          type: [string, 'null']
+          type:
+            - string
+            - 'null'
           format: date-time
         createdByUserId:
-          type: [string, 'null']
+          type:
+            - string
+            - 'null'
         createdAt:
           type: string
           format: date-time
@@ -533,7 +610,9 @@ components:
         title:
           type: string
         location:
-          type: [string, 'null']
+          type:
+            - string
+            - 'null'
         mode:
           $ref: '#/components/schemas/TripMode'
         startDate:
@@ -572,7 +651,9 @@ components:
         title:
           type: string
         location:
-          type: [string, 'null']
+          type:
+            - string
+            - 'null'
         mode:
           $ref: '#/components/schemas/TripMode'
         startDate:
@@ -588,7 +669,9 @@ components:
         title:
           type: string
         location:
-          type: [string, 'null']
+          type:
+            - string
+            - 'null'
         mode:
           $ref: '#/components/schemas/TripMode'
         startDate:
@@ -610,12 +693,16 @@ components:
         splitType:
           $ref: '#/components/schemas/SplitType'
         payerMembershipId:
-          type: [string, 'null']
+          type:
+            - string
+            - 'null'
         date:
           type: string
           format: date
         note:
-          type: [string, 'null']
+          type:
+            - string
+            - 'null'
 
     CreateContributionRequest:
       type: object
@@ -629,19 +716,6 @@ components:
         date:
           type: string
           format: date
-
-    CreateInvitationRequest:
-      type: object
-      properties:
-        createdByUserId:
-          type: [string, 'null']
-
-    AcceptInvitationRequest:
-      type: object
-      required: [userId]
-      properties:
-        userId:
-          type: string
 
     ErrorResponse:
       type: object
