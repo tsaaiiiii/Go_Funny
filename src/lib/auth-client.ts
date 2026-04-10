@@ -8,4 +8,8 @@ const betterAuthBaseUrl =
 export const authClient = createAuthClient({
   ...(betterAuthBaseUrl ? { baseURL: betterAuthBaseUrl } : {}),
   basePath: '/api/auth',
+  sessionOptions: {
+    refetchOnWindowFocus: false,
+    refetchInterval: 0,
+  },
 })
