@@ -1,6 +1,6 @@
 import { ArrowRight, LockKeyhole, Mail } from 'lucide-react'
 import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 
 import { MobileHeader } from '@/components/layout/mobile-header'
 import { Button } from '@/components/ui/button'
@@ -11,10 +11,14 @@ import { isMockAuthEnabled, writeMockSession } from '@/lib/mock-session'
 
 export function AuthSignInPage() {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const { showError } = useToast()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [emailPending, setEmailPending] = useState(false)
+  const inviteToken = searchParams.get('invite')?.trim() ?? ''
+  const nextPath = inviteToken ? `/invitations/${inviteToken}?autoJoin=1` : '/'
+  const registerPath = inviteToken ? `/register?invite=${encodeURIComponent(inviteToken)}` : '/register'
 
   async function handleEmailSignIn() {
     setEmailPending(true)
@@ -26,7 +30,7 @@ export function AuthSignInPage() {
         },
       })
       queueFlashToast({ tone: 'success', title: '登入成功', description: '已使用本地 mock 帳號登入。' })
-      navigate('/')
+      navigate(nextPath)
       return
     }
 
@@ -34,10 +38,10 @@ export function AuthSignInPage() {
       await authClient.signIn.email({
         email,
         password,
-        callbackURL: '/',
+        callbackURL: nextPath,
       })
       queueFlashToast({ tone: 'success', title: '登入成功', description: '歡迎回來，旅程資料已同步。' })
-      navigate('/', { replace: true })
+      navigate(nextPath, { replace: true })
     } catch {
       showError('登入失敗', '登入流程尚未完成，或目前帳號服務不可用。')
     } finally {
@@ -84,7 +88,7 @@ export function AuthSignInPage() {
           </Button>
 
           <p className="text-sm text-muted-foreground">
-            還沒有帳號？ <Link to="/register" className="font-medium text-primary">建立帳號</Link>
+            還沒有帳號？ <Link to={registerPath} className="font-medium text-primary">建立帳號</Link>
           </p>
         </CardContent>
       </Card>

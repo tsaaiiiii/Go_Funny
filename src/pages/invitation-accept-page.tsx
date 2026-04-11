@@ -1,16 +1,120 @@
-import { ArrowRight, CheckCircle2, Link2, MapPin, ShieldCheck, Sparkles, Users } from 'lucide-react'
-import { useMemo } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { useEffect, useRef } from 'react'
+import { ArrowRight, CheckCircle2, MapPin, Users } from 'lucide-react'
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 
-import { MobileHeader } from '@/components/layout/mobile-header'
+import { useAcceptTripInvitation, useGetInvitationByToken } from '@/api/generated/invitations/invitations'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
+import { EmptyState } from '@/components/ui/empty-state'
+import { LoadingState } from '@/components/ui/loading-state'
+import { MobileHeader } from '@/components/layout/mobile-header'
+import { queueFlashToast, useToast } from '@/components/ui/toast'
+import { hasStatus } from '@/lib/api-response'
+import { authClient } from '@/lib/auth-client'
+
+const tripModeLabel = {
+  expense: '一般記帳',
+  pool: '公積金',
+} as const
+
+const invitationRoleLabel = {
+  editor: '可共同編輯',
+} as const
 
 export function InvitationAcceptPage() {
-  const { token } = useParams()
-  const inviteToken = useMemo(() => token ?? '', [token])
-  const tokenPreview = useMemo(() => inviteToken.slice(0, 8) || 'draft-link', [inviteToken])
+  const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  const { showError } = useToast()
+  const { token = '' } = useParams()
+  const autoJoinRequested = searchParams.get('autoJoin') === '1'
+  const autoJoinStartedRef = useRef(false)
+  const { data: session, isPending: sessionPending } = authClient.useSession()
+  const { data: invitationResponse, isPending: invitationPending } = useGetInvitationByToken(token, {
+    query: {
+      enabled: !!token,
+      retry: false,
+    },
+  })
+  const acceptInvitationMutation = useAcceptTripInvitation()
+
+  const invitation = hasStatus(invitationResponse, 200) ? invitationResponse.data : null
+  const notFound = hasStatus(invitationResponse, 404)
+
+  if (!token) {
+    return (
+      <EmptyState
+        title="找不到邀請連結"
+        description="這個邀請連結格式不正確，請重新確認後再試一次。"
+      />
+    )
+  }
+
+  if (invitationPending || sessionPending) {
+    return <LoadingState title="邀請資料載入中" description="正在確認旅程邀請內容。" />
+  }
+
+  if (notFound) {
+    return (
+      <div className="space-y-5 pb-4">
+        <MobileHeader title="加入旅程" backTo="/" />
+        <EmptyState
+          title="邀請連結不存在"
+          description="這個邀請可能已失效，請請旅程成員重新產生新的邀請連結。"
+          action={
+            <Link to="/" className="inline-flex">
+              <Button variant="outline">回到首頁</Button>
+            </Link>
+          }
+        />
+      </div>
+    )
+  }
+
+  if (!invitation) {
+    return (
+      <div className="space-y-5 pb-4">
+        <MobileHeader title="加入旅程" backTo="/" />
+        <EmptyState
+          title="目前無法讀取邀請資料"
+          description="請稍後再試一次，或請旅程成員重新分享邀請連結。"
+        />
+      </div>
+    )
+  }
+
+  const trip = invitation.trip
+  const roleLabel = invitationRoleLabel[invitation.role] ?? invitation.role
+  const modeLabel = tripModeLabel[trip.mode] ?? trip.mode
+
+  async function handleAcceptInvitation() {
+    try {
+      const response = await acceptInvitationMutation.mutateAsync({ token })
+
+      if (response.status === 201) {
+        queueFlashToast({
+          tone: 'success',
+          title: '已加入旅程',
+          description: `你已加入「${trip.title}」。`,
+        })
+        navigate(`/trip/${trip.id}`, { replace: true })
+        return
+      }
+
+      showError('加入旅程失敗', response.data.message)
+    } catch {
+      showError('加入旅程失敗', '請稍後再試。')
+    }
+  }
+
+  useEffect(() => {
+    if (!autoJoinRequested || !session?.user || !invitation || autoJoinStartedRef.current) {
+      return
+    }
+
+    autoJoinStartedRef.current = true
+    void handleAcceptInvitation()
+  }, [autoJoinRequested, invitation, session?.user])
 
   return (
     <div className="space-y-5 pb-4">
@@ -22,89 +126,55 @@ export function InvitationAcceptPage() {
             <div className="flex h-14 w-14 items-center justify-center rounded-full bg-[#EEF7F8] text-primary">
               <Users className="h-7 w-7" />
             </div>
-            <Badge tone="blue">共同編輯邀請</Badge>
+            <Badge tone={trip.mode === 'pool' ? 'green' : 'blue'}>{modeLabel}</Badge>
           </div>
 
           <div className="space-y-2">
-            <p className="text-sm text-muted-foreground">邀請連結</p>
-            <h2 className="text-2xl font-semibold leading-tight text-foreground">你被邀請加入這趟旅程，和朋友一起記帳。</h2>
-            <p className="text-sm leading-6 text-muted-foreground">完成登入後，你會被加入旅程成員，並可共同編輯支出與分帳內容。</p>
+            <p className="text-sm text-muted-foreground">旅程邀請</p>
+            <h2 className="text-2xl font-semibold leading-tight text-foreground">{trip.title}</h2>
+            {trip.location ? (
+              <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                <MapPin className="h-4 w-4" />
+                <span>{trip.location}</span>
+              </div>
+            ) : null}
           </div>
 
-          <div className="rounded-3xl bg-[linear-gradient(135deg,rgba(95,168,184,0.12),rgba(127,167,138,0.1))] px-4 py-4">
-            <div className="flex items-start justify-between gap-3">
-              <div className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <Badge tone="green">公積金</Badge>
-                  <span className="text-xs text-muted-foreground">Token · {tokenPreview}</span>
-                </div>
-                <div>
-                  <p className="text-lg font-semibold text-foreground">沖繩海風小旅行</p>
-                  <div className="mt-1 flex items-center gap-1.5 text-sm text-muted-foreground">
-                    <MapPin className="h-4 w-4" />
-                    <span>沖繩 · 日本</span>
-                  </div>
-                </div>
-              </div>
-              <div className="flex -space-x-2">
-                <div className="flex h-10 w-10 items-center justify-center rounded-full border-2 border-white bg-[#D5E9EF] text-sm font-semibold text-foreground">A</div>
-                <div className="flex h-10 w-10 items-center justify-center rounded-full border-2 border-white bg-[#DCEAD9] text-sm font-semibold text-foreground">S</div>
-                <div className="flex h-10 w-10 items-center justify-center rounded-full border-2 border-white bg-[#EFE2D4] text-sm font-semibold text-foreground">N</div>
-              </div>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-3 gap-3 text-center text-sm">
+          <div className="grid grid-cols-2 gap-3 text-center text-sm">
             <div className="rounded-2xl bg-white/80 p-3">
-              <p className="text-muted-foreground">角色</p>
-              <p className="mt-1 font-semibold text-foreground">成員 + 編輯者</p>
+              <p className="text-muted-foreground">模式</p>
+              <p className="mt-1 font-semibold text-foreground">{modeLabel}</p>
             </div>
             <div className="rounded-2xl bg-white/80 p-3">
               <p className="text-muted-foreground">權限</p>
-              <p className="mt-1 font-semibold text-foreground">可共同編輯</p>
-            </div>
-            <div className="rounded-2xl bg-white/80 p-3">
-              <p className="text-muted-foreground">加入方式</p>
-              <p className="mt-1 font-semibold text-foreground">登入後加入</p>
+              <p className="mt-1 font-semibold text-foreground">{roleLabel}</p>
             </div>
           </div>
-
-          <Link to="/login" className="block">
-            <Button className="w-full">前往登入後加入</Button>
-          </Link>
 
           <div className="rounded-3xl border border-border/70 bg-white/75 px-4 py-4">
-            <div className="mb-3 flex items-center gap-2 font-medium text-foreground">
-              <Sparkles className="h-4 w-4 text-primary" />
-              加入後你可以做的事
-            </div>
-            <div className="space-y-3 text-sm text-muted-foreground">
-              <div className="flex items-center gap-3">
-                <CheckCircle2 className="h-4 w-4 text-secondary" />
-                <span>加入這趟旅程並自動成為成員</span>
-              </div>
-              <div className="flex items-center gap-3">
-                <ArrowRight className="h-4 w-4 text-primary" />
-                <span>查看每日支出、共同編輯與更新紀錄</span>
-              </div>
-              <div className="flex items-center gap-3">
-                <ShieldCheck className="h-4 w-4 text-primary" />
-                <span>正式版本將由後端驗證 token 有效性與權限</span>
-              </div>
+            <div className="flex items-start gap-3">
+              <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-secondary" />
+              <p className="text-sm leading-6 text-muted-foreground">
+                {session?.user
+                  ? '確認後會直接加入這趟旅程，之後就能查看與編輯相關記帳內容。'
+                  : '登入後即可加入這趟旅程，並和其他成員一起記帳與查看結算。'}
+              </p>
             </div>
           </div>
 
-          <div className="rounded-2xl border border-dashed border-border bg-white/60 px-4 py-4 text-sm text-muted-foreground">
-            <div className="mb-2 flex items-center gap-2 font-medium text-foreground">
-              <Link2 className="h-4 w-4 text-primary" />
-              目前狀態
-            </div>
-            這是前端接受邀請頁的高擬真畫面，實際加入流程仍需等 Better Auth 與 invitation API 完成後接通。
-          </div>
-
-          <p className="text-sm text-muted-foreground">
-            想先看看產品？ <Link to="/" className="font-medium text-primary">回到首頁</Link>
-          </p>
+          {session?.user ? (
+            <Button className="w-full gap-2" onClick={handleAcceptInvitation} disabled={acceptInvitationMutation.isPending}>
+              <ArrowRight className="h-4 w-4" />
+              {acceptInvitationMutation.isPending ? '加入中...' : '接受邀請並加入'}
+            </Button>
+          ) : (
+            <Link to={`/login?invite=${encodeURIComponent(token)}`} className="block">
+              <Button className="w-full gap-2">
+                <ArrowRight className="h-4 w-4" />
+                前往登入後加入
+              </Button>
+            </Link>
+          )}
         </CardContent>
       </Card>
     </div>
