@@ -14,7 +14,7 @@ import { useGetTripById } from '@/api/generated/trips/trips'
 import { useDeleteTripExpense } from '@/api/generated/expenses/expenses'
 import { hasStatus } from '@/lib/api-response'
 import { formatCurrency } from '@/lib/currency'
-import type { Expense, Member } from '@/api/generated/model'
+import type { ExpenseWithSplits, TripMembershipWithUser } from '@/api/generated/model'
 
 const buildDateRange = (startDate: string, endDate: string) => {
   const dates: string[] = []
@@ -58,7 +58,7 @@ const findDefaultSelectedDate = (expenseDates: string[], tripStartDate: string) 
   return allDateKey
 }
 
-const buildExpenseSplitDetails = (expense: Expense, members: Member[]) => {
+const buildExpenseSplitDetails = (expense: ExpenseWithSplits, members: TripMembershipWithUser[]) => {
   if (!expense.splits || expense.splits.length === 0) return []
 
   return expense.splits
@@ -66,7 +66,7 @@ const buildExpenseSplitDetails = (expense: Expense, members: Member[]) => {
       member: members.find((member) => member.id === split.membershipId),
       amount: split.amount,
     }))
-    .filter((item): item is { member: Member; amount: number } => Boolean(item.member))
+    .filter((item): item is { member: TripMembershipWithUser; amount: number } => Boolean(item.member))
 }
 
 export function TripDetailPage() {

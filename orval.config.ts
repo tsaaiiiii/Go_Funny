@@ -3,7 +3,7 @@ import { defineConfig } from 'orval'
 export default defineConfig({
   tripAccount: {
     input: {
-      target: './docs/openapi.draft.yaml',
+      target: 'https://go-funny-backend.onrender.com/openapi.json',
     },
     output: {
       mode: 'tags-split',

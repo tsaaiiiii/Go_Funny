@@ -8,7 +8,7 @@ import { EmptyState } from '@/components/ui/empty-state'
 import { LoadingState } from '@/components/ui/loading-state'
 import { SectionHeading } from '@/components/ui/section-heading'
 import { useGetTripById } from '@/api/generated/trips/trips'
-import { useGetTripSettlement } from '@/api/generated/settlement/settlement'
+import { useGetTripSettlement } from '@/api/generated/settlements/settlements'
 import { hasStatus } from '@/lib/api-response'
 import { formatCurrency } from '@/lib/currency'
 

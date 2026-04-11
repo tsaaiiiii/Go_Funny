@@ -37,7 +37,7 @@ pnpm preview
 pnpm generate:api
 ```
 
-This command is reserved for the future `Orval` flow. Once your backend provides the final OpenAPI spec, you can install `orval` and generate the frontend client from `docs/openapi.draft.yaml` or the final backend-owned spec.
+This command generates the frontend client from the backend-owned OpenAPI endpoint configured in `orval.config.ts`.
 
 ## Included Screens
 
