@@ -79,9 +79,11 @@ export function SettlementPage() {
 
           {settlement.transfers.length === 0 ? (
             <div className="rounded-2xl bg-[#F5FAF6] px-4 py-5 text-center text-sm text-muted-foreground">
-              {trip.mode === 'pool' && poolShortage > 0
-                ? '目前沒有可互相轉帳的對象，請先補足共同池。'
-                : '目前共同池充足，暫時不需要額外轉帳。'}
+              {trip.mode === 'pool'
+                ? poolShortage > 0
+                  ? '目前沒有可互相轉帳的對象，請先補足共同池。'
+                  : '目前共同池充足，暫時不需要額外轉帳。'
+                : '目前沒有需要額外轉帳的對象。'}
             </div>
           ) : (
             settlement.transfers.map((transfer) => {

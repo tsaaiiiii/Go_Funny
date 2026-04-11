@@ -76,6 +76,28 @@ export function TripDetailPage() {
   const { data: tripResponse, isPending } = useGetTripById(tripId!)
   const trip = hasStatus(tripResponse, 200) ? tripResponse.data : null
   const deleteExpenseMutation = useDeleteTripExpense()
+  const fallbackDate = new Date().toISOString().slice(0, 10)
+  const startDateStr = trip ? new Date(trip.startDate).toISOString().slice(0, 10) : fallbackDate
+  const endDateStr = trip ? new Date(trip.endDate).toISOString().slice(0, 10) : fallbackDate
+  const totalExpense = trip?.expenses.reduce((sum, expense) => sum + expense.amount, 0) ?? 0
+  const totalContribution = trip?.contributions.reduce((sum, contribution) => sum + contribution.amount, 0) ?? 0
+  const tripDates = useMemo(() => buildDateRange(startDateStr, endDateStr), [startDateStr, endDateStr])
+  const expenseDates = useMemo(
+    () => trip?.expenses.map((expense) => new Date(expense.date).toISOString().slice(0, 10)) ?? [],
+    [trip?.expenses],
+  )
+  const [selectedDate, setSelectedDate] = useState<string>(findDefaultSelectedDate(expenseDates, startDateStr))
+
+  useEffect(() => {
+    if (!trip) {
+      return
+    }
+
+    const nextDate = findDefaultSelectedDate(expenseDates, startDateStr)
+    setSelectedDate((current: string) =>
+      current === allDateKey || tripDates.includes(current) ? current : nextDate,
+    )
+  }, [trip, startDateStr, expenseDates, tripDates])
 
   if (isPending) {
     return <LoadingState title="旅程明細載入中" description="正在整理這趟旅程的支出與記錄。" />
@@ -84,21 +106,6 @@ export function TripDetailPage() {
   if (!trip) {
     return null
   }
-
-  const startDateStr = new Date(trip.startDate).toISOString().slice(0, 10)
-  const endDateStr = new Date(trip.endDate).toISOString().slice(0, 10)
-  const totalExpense = trip.expenses.reduce((sum, expense) => sum + expense.amount, 0)
-  const totalContribution = trip.contributions.reduce((sum, contribution) => sum + contribution.amount, 0)
-  const tripDates = useMemo(() => buildDateRange(startDateStr, endDateStr), [startDateStr, endDateStr])
-  const expenseDates = useMemo(() => trip.expenses.map((expense) => new Date(expense.date).toISOString().slice(0, 10)), [trip.expenses])
-  const [selectedDate, setSelectedDate] = useState<string>(findDefaultSelectedDate(expenseDates, startDateStr))
-
-  useEffect(() => {
-    const nextDate = findDefaultSelectedDate(expenseDates, startDateStr)
-    setSelectedDate((current: string) =>
-      current === allDateKey || tripDates.includes(current) ? current : nextDate,
-    )
-  }, [startDateStr, expenseDates, tripDates])
 
   const selectedDateExpenses =
       selectedDate === allDateKey

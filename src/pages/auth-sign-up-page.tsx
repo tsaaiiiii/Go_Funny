@@ -62,7 +62,7 @@ export function AuthSignUpPage() {
       if (error) {
         const message = getAuthErrorMessage(error, '註冊失敗，請稍後再試。')
 
-        if (error.code === 'USER_ALREADY_EXISTS') {
+        if (error.code === 'USER_ALREADY_EXISTS' || error.code === 'USER_ALREADY_EXISTS_USE_ANOTHER_EMAIL') {
           setErrors((current) => ({ ...current, email: message }))
         } else {
           showError('註冊失敗', message)

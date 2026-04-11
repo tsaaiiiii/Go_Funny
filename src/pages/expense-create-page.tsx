@@ -38,6 +38,34 @@ export function ExpenseCreatePage() {
   const [splitMode, setSplitMode] = useState<'equal' | 'custom' | null>('equal')
   const [selectedMembers, setSelectedMembers] = useState<string[]>(trip?.memberships.map((m) => m.id) ?? [])
   const [customAmounts, setCustomAmounts] = useState<Record<string, string>>({})
+  const memberships = trip?.memberships ?? []
+
+  useEffect(() => {
+    if (tripId) setSelectedTripId(tripId)
+  }, [tripId])
+
+  useEffect(() => {
+    if (!trip) {
+      return
+    }
+
+    setPayerMembershipId(trip.memberships[0]?.id ?? '')
+    setSelectedMembers(trip.memberships.map((m) => m.id))
+    setCustomAmounts({})
+    setSplitMode('equal')
+  }, [trip])
+
+  const allMemberIds = useMemo(() => memberships.map((m) => m.id), [memberships])
+  const parsedAmount = Number(amount) || 0
+  const averageAmount = useMemo(() => Math.round(parsedAmount / Math.max(selectedMembers.length, 1)), [parsedAmount, selectedMembers.length])
+  const splitType =
+    splitMode === 'custom'
+      ? 'custom'
+      : selectedMembers.length === memberships.length
+        ? 'equal_all'
+        : 'equal_selected'
+  const customTotal = selectedMembers.reduce((sum, id) => sum + (Number(customAmounts[id]) || 0), 0)
+  const customSplitValid = splitMode !== 'custom' || (selectedMembers.length > 0 && customTotal === parsedAmount)
 
   if (tripsPending || (selectedTripId && tripPending)) {
     return <LoadingState title="支出表單載入中" description="正在準備旅程與成員資料。" />
@@ -46,29 +74,6 @@ export function ExpenseCreatePage() {
   if (!trip) {
     return <LoadingState title="找不到旅程資料" description="請稍後重試，或回首頁重新選擇旅程。" compact />
   }
-
-  useEffect(() => {
-    if (tripId) setSelectedTripId(tripId)
-  }, [tripId])
-
-  useEffect(() => {
-    setPayerMembershipId(trip.memberships[0]?.id ?? '')
-    setSelectedMembers(trip.memberships.map((m) => m.id))
-    setCustomAmounts({})
-    setSplitMode('equal')
-  }, [trip.id, trip.memberships])
-
-  const allMemberIds = useMemo(() => trip.memberships.map((m) => m.id), [trip.memberships])
-  const parsedAmount = Number(amount) || 0
-  const averageAmount = useMemo(() => Math.round(parsedAmount / Math.max(selectedMembers.length, 1)), [parsedAmount, selectedMembers.length])
-  const splitType =
-    splitMode === 'custom'
-      ? 'custom'
-      : selectedMembers.length === trip.memberships.length
-        ? 'equal_all'
-        : 'equal_selected'
-  const customTotal = selectedMembers.reduce((sum, id) => sum + (Number(customAmounts[id]) || 0), 0)
-  const customSplitValid = splitMode !== 'custom' || (selectedMembers.length > 0 && customTotal === parsedAmount)
 
   async function handleSubmit() {
     if (!trip) return

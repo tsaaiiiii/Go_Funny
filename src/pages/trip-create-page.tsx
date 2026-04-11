@@ -61,11 +61,6 @@ export function TripCreatePage() {
   const editingTrip = hasStatus(tripResponse, 200) ? tripResponse.data : null
   const isEditingRoute = Boolean(tripId)
   const isEditing = Boolean(tripId && editingTrip)
-
-  if (isEditingRoute && isPending) {
-    return <LoadingState title="旅程資料載入中" description="正在準備這趟旅程的編輯內容。" />
-  }
-
   const createTripMutation = useCreateTrip()
   const updateTripMutation = useUpdateTrip()
   const deleteTripMutation = useDeleteTrip()
@@ -105,6 +100,10 @@ export function TripCreatePage() {
       setCalendarRange(selectedRange)
     }
   }, [dateRangeOpen, selectedRange])
+
+  if (isEditingRoute && isPending) {
+    return <LoadingState title="旅程資料載入中" description="正在準備這趟旅程的編輯內容。" />
+  }
 
   function handleDateRangeOpenChange(open: boolean) {
     setDateRangeOpen(open)
