@@ -41,6 +41,15 @@ export function InvitationAcceptPage() {
   const invitation = hasStatus(invitationResponse, 200) ? invitationResponse.data : null
   const notFound = hasStatus(invitationResponse, 404)
 
+  useEffect(() => {
+    if (!autoJoinRequested || !session?.user || !invitation || autoJoinStartedRef.current) {
+      return
+    }
+
+    autoJoinStartedRef.current = true
+    void handleAcceptInvitation()
+  }, [autoJoinRequested, invitation, session?.user])
+
   if (!token) {
     return (
       <EmptyState
@@ -106,15 +115,6 @@ export function InvitationAcceptPage() {
       showError('加入旅程失敗', '請稍後再試。')
     }
   }
-
-  useEffect(() => {
-    if (!autoJoinRequested || !session?.user || !invitation || autoJoinStartedRef.current) {
-      return
-    }
-
-    autoJoinStartedRef.current = true
-    void handleAcceptInvitation()
-  }, [autoJoinRequested, invitation, session?.user])
 
   return (
     <div className="space-y-5 pb-4">

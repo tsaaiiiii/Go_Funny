@@ -6,7 +6,7 @@ import { MobileHeader } from '@/components/layout/mobile-header'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { queueFlashToast, useToast } from '@/components/ui/toast'
-import { authClient } from '@/lib/auth-client'
+import { authClient, getAuthErrorMessage } from '@/lib/auth-client'
 import { isMockAuthEnabled, writeMockSession } from '@/lib/mock-session'
 
 export function AuthSignInPage() {
@@ -35,11 +35,17 @@ export function AuthSignInPage() {
     }
 
     try {
-      await authClient.signIn.email({
+      const { error } = await authClient.signIn.email({
         email,
         password,
         callbackURL: nextPath,
       })
+
+      if (error) {
+        showError('登入失敗', getAuthErrorMessage(error, '登入失敗，請稍後再試。'))
+        return
+      }
+
       queueFlashToast({ tone: 'success', title: '登入成功', description: '歡迎回來，旅程資料已同步。' })
       navigate(nextPath, { replace: true })
     } catch {

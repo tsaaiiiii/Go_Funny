@@ -7,7 +7,7 @@ import { MobileHeader } from '@/components/layout/mobile-header'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { queueFlashToast, useToast } from '@/components/ui/toast'
-import { authClient } from '@/lib/auth-client'
+import { authClient, getAuthErrorMessage } from '@/lib/auth-client'
 
 const signUpSchema = z.object({
   name: z.string().trim().min(1, '請輸入名稱'),
@@ -52,12 +52,25 @@ export function AuthSignUpPage() {
     setErrors({})
     setEmailPending(true)
     try {
-      await authClient.signUp.email({
+      const { error } = await authClient.signUp.email({
         name: validationResult.data.name,
         email: validationResult.data.email,
         password: validationResult.data.password,
         callbackURL: nextPath,
       })
+
+      if (error) {
+        const message = getAuthErrorMessage(error, '註冊失敗，請稍後再試。')
+
+        if (error.code === 'USER_ALREADY_EXISTS') {
+          setErrors((current) => ({ ...current, email: message }))
+        } else {
+          showError('註冊失敗', message)
+        }
+
+        return
+      }
+
       queueFlashToast({ tone: 'success', title: '註冊成功', description: '帳號已建立，正在為你進入首頁。' })
       navigate(nextPath, { replace: true })
     } catch {
