@@ -1,4 +1,4 @@
-import { ArrowRight, CalendarRange, Compass, Sparkles, Trash2 } from 'lucide-react'
+import { ArrowRight, CalendarRange, Compass, LoaderCircle, Sparkles, Trash2 } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
@@ -11,6 +11,7 @@ import { Calendar } from '@/components/ui/calendar'
 import { Card, CardContent } from '@/components/ui/card'
 import { MobileHeader } from '@/components/layout/mobile-header'
 import { LoadingState } from '@/components/ui/loading-state'
+import { PageBlockingLoading } from '@/components/ui/page-blocking-loading'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { SectionHeading } from '@/components/ui/section-heading'
 import { queueFlashToast, useToast } from '@/components/ui/toast'
@@ -64,6 +65,8 @@ export function TripCreatePage() {
   const createTripMutation = useCreateTrip()
   const updateTripMutation = useUpdateTrip()
   const deleteTripMutation = useDeleteTrip()
+  const submitPending = createTripMutation.isPending || updateTripMutation.isPending
+  const mutationPending = submitPending || deleteTripMutation.isPending
 
   const [title, setTitle] = useState(editingTrip?.title ?? '')
   const [location, setLocation] = useState(editingTrip?.location ?? '')
@@ -187,7 +190,7 @@ export function TripCreatePage() {
       }
       await queryClient.invalidateQueries({ queryKey: ['/trips'] })
       queueFlashToast({ tone: 'success', title: '旅程已建立', description: '接著就能邀請旅伴加入。' })
-      navigate(`/trip/${result.data.id}/members`)
+      navigate(`/trip/${result.data.id}/members?from=create`)
     } catch {
       showError('建立旅程失敗', '請稍後再試。')
     }
@@ -197,7 +200,13 @@ export function TripCreatePage() {
     if (!editingTrip) return
 
     try {
-      await deleteTripMutation.mutateAsync({ tripId: editingTrip.id })
+      const result = await deleteTripMutation.mutateAsync({ tripId: editingTrip.id })
+
+      if (result.status !== 204) {
+        showError('刪除旅程失敗', result.data.message || '請稍後再試。')
+        return
+      }
+
       await queryClient.invalidateQueries({ queryKey: ['/trips'] })
       queueFlashToast({ tone: 'success', title: '旅程已刪除' })
       navigate('/')
@@ -208,6 +217,16 @@ export function TripCreatePage() {
 
   return (
     <div className="space-y-5 pb-4">
+      {mutationPending ? (
+        <PageBlockingLoading
+          title={deleteTripMutation.isPending ? '刪除旅程中' : '儲存旅程中'}
+          description={
+            deleteTripMutation.isPending
+              ? '正在刪除旅程並整理首頁資料。'
+              : '正在儲存旅程設定，請稍候。'
+          }
+        />
+      ) : null}
       <MobileHeader title={isEditing ? '編輯旅程' : '建立旅程'} backTo={isEditing && editingTrip ? `/trip/${editingTrip.id}/manage` : '/'} />
 
       <Card className="border-none bg-[linear-gradient(180deg,rgba(255,253,252,0.96),rgba(240,247,246,0.92))] shadow-float">
@@ -333,20 +352,30 @@ export function TripCreatePage() {
           <button
             type="button"
             onClick={handleDelete}
-            disabled={deleteTripMutation.isPending}
+            disabled={mutationPending}
             className="inline-flex h-12 w-12 items-center justify-center rounded-full border border-[#EBCACA] bg-[#FFF5F5] text-[#C96B6B]"
           >
-            <Trash2 className="h-4 w-4" />
+            {deleteTripMutation.isPending ? (
+              <LoaderCircle className="h-4 w-4 animate-spin" />
+            ) : (
+              <Trash2 className="h-4 w-4" />
+            )}
           </button>
         ) : null}
-        <Link
-          to={isEditing && editingTrip ? `/trip/${editingTrip.id}/manage` : '/'}
-          className="inline-flex h-12 flex-1 items-center justify-center rounded-full border border-border bg-card px-4 font-medium text-foreground transition-all hover:bg-white"
-        >
-          取消
-        </Link>
-        <Button size="lg" className="flex-1" onClick={handleSubmit} disabled={!title.trim() || createTripMutation.isPending || updateTripMutation.isPending}>
-          {createTripMutation.isPending || updateTripMutation.isPending ? '儲存中...' : submitLabel}
+        {mutationPending ? (
+          <span className="inline-flex h-12 flex-1 items-center justify-center rounded-full border border-border bg-card px-4 font-medium text-muted-foreground opacity-60">
+            取消
+          </span>
+        ) : (
+          <Link
+            to={isEditing && editingTrip ? `/trip/${editingTrip.id}/manage` : '/'}
+            className="inline-flex h-12 flex-1 items-center justify-center rounded-full border border-border bg-card px-4 font-medium text-foreground transition-all hover:bg-white"
+          >
+            取消
+          </Link>
+        )}
+        <Button size="lg" className="flex-1" onClick={handleSubmit} disabled={!title.trim() || mutationPending}>
+          {deleteTripMutation.isPending ? '刪除中...' : submitPending ? '儲存中...' : submitLabel}
         </Button>
       </div>
 

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { ChevronUp, Plus, Trash2, Users, Wallet2 } from 'lucide-react'
+import { ChevronUp, LoaderCircle, Plus, Trash2, Users, Wallet2 } from 'lucide-react'
 import { Link, useParams } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 
@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
 import { EmptyState } from '@/components/ui/empty-state'
 import { LoadingState } from '@/components/ui/loading-state'
+import { PageBlockingLoading } from '@/components/ui/page-blocking-loading'
 import { SectionHeading } from '@/components/ui/section-heading'
 import { useToast } from '@/components/ui/toast'
 import { useGetTripById } from '@/api/generated/trips/trips'
@@ -76,6 +77,7 @@ export function TripDetailPage() {
   const { data: tripResponse, isPending } = useGetTripById(tripId!)
   const trip = hasStatus(tripResponse, 200) ? tripResponse.data : null
   const deleteExpenseMutation = useDeleteTripExpense()
+  const [deletingExpenseId, setDeletingExpenseId] = useState<string | null>(null)
   const fallbackDate = new Date().toISOString().slice(0, 10)
   const startDateStr = trip ? new Date(trip.startDate).toISOString().slice(0, 10) : fallbackDate
   const endDateStr = trip ? new Date(trip.endDate).toISOString().slice(0, 10) : fallbackDate
@@ -114,17 +116,23 @@ export function TripDetailPage() {
   const selectedDateTotal = selectedDateExpenses.reduce((sum, expense) => sum + expense.amount, 0)
 
   async function handleDeleteExpense(expenseId: string) {
+    setDeletingExpenseId(expenseId)
     try {
       await deleteExpenseMutation.mutateAsync({ tripId: tripId!, expenseId })
       await queryClient.invalidateQueries({ queryKey: [`/trips/${tripId}`] })
       showSuccess('支出已刪除')
     } catch {
       showError('刪除支出失敗', '請稍後再試。')
+    } finally {
+      setDeletingExpenseId(null)
     }
   }
 
   return (
     <div className="space-y-5 pb-4">
+      {deleteExpenseMutation.isPending ? (
+        <PageBlockingLoading title="刪除支出中" description="正在更新旅程明細，請稍候。" />
+      ) : null}
       <MobileHeader title={trip.title} backTo="/" />
 
       <Card className="border-none shadow-float">
@@ -267,10 +275,20 @@ export function TripDetailPage() {
                     <button
                       type="button"
                       onClick={() => handleDeleteExpense(expense.id)}
+                      disabled={deleteExpenseMutation.isPending}
                       className="mt-2 inline-flex h-7 items-center gap-1 rounded-full border border-[#F1C7C7] bg-[#FFF5F5] px-2.5 text-[11px] font-medium text-danger transition-colors hover:bg-[#FEEBEB]"
                     >
-                      <Trash2 className="h-3 w-3" />
-                      刪除
+                      {deletingExpenseId === expense.id ? (
+                        <>
+                          <LoaderCircle className="h-3 w-3 animate-spin" />
+                          刪除中...
+                        </>
+                      ) : (
+                        <>
+                          <Trash2 className="h-3 w-3" />
+                          刪除
+                        </>
+                      )}
                     </button>
                   </div>
                 </div>

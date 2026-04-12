@@ -41,7 +41,12 @@ export function SettlementPage() {
 
   return (
     <div className="space-y-5 pb-4">
-      <MobileHeader title="結算結果" backTo={`/trip/${trip.id}`} />
+      <MobileHeader
+        title="結算結果"
+        subtitle={trip.title}
+        location={trip.location ?? undefined}
+        backTo="/"
+      />
 
       <Card className="border-none bg-[linear-gradient(180deg,rgba(95,168,184,0.12),rgba(127,167,138,0.12))] shadow-float">
         <CardContent className="space-y-4 pt-5">

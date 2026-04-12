@@ -10,6 +10,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { DatePickerField } from '@/components/ui/date-picker-field'
 import { EmptyState } from '@/components/ui/empty-state'
 import { LoadingState } from '@/components/ui/loading-state'
+import { PageBlockingLoading } from '@/components/ui/page-blocking-loading'
 import { SectionHeading } from '@/components/ui/section-heading'
 import { queueFlashToast, useToast } from '@/components/ui/toast'
 import { useGetTrips, useGetTripById } from '@/api/generated/trips/trips'
@@ -105,7 +106,10 @@ export function ExpenseCreatePage() {
 
   return (
     <div className="space-y-5 pb-4">
-      <MobileHeader title="新增支出" subtitle={trip.title} backTo={`/trip/${trip.id}`} />
+      {createExpenseMutation.isPending ? (
+        <PageBlockingLoading title="儲存支出中" description="正在建立支出並更新旅程明細。" />
+      ) : null}
+      <MobileHeader title="新增支出" subtitle={trip.title} backTo="/" />
 
       <Card>
         <CardContent className="space-y-2 pt-5">

@@ -1,30 +1,39 @@
-import { AlertTriangle, Copy, Trash2 } from 'lucide-react'
+import { AlertTriangle, Copy, LoaderCircle, Trash2 } from 'lucide-react'
 import { useState } from 'react'
-import { useParams } from 'react-router-dom'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 
+import { authClient } from '@/lib/auth-client'
 import { MobileHeader } from '@/components/layout/mobile-header'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { EmptyState } from '@/components/ui/empty-state'
 import { LoadingState } from '@/components/ui/loading-state'
+import { PageBlockingLoading } from '@/components/ui/page-blocking-loading'
 import { SectionHeading } from '@/components/ui/section-heading'
 import { useToast } from '@/components/ui/toast'
 import { useGetTripById } from '@/api/generated/trips/trips'
 import { useDeleteTripMember } from '@/api/generated/members/members'
 import { useCreateTripInvitation } from '@/api/generated/invitations/invitations'
 import { hasStatus } from '@/lib/api-response'
+import { readMockSession } from '@/lib/mock-session'
 
 export function MembersPage() {
   const { tripId } = useParams()
+  const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const queryClient = useQueryClient()
   const { showError, showSuccess } = useToast()
+  const { data: session } = authClient.useSession()
+  const mockSession = readMockSession()
+  const currentUser = session?.user ?? mockSession?.user ?? null
   const { data: tripResponse, isPending } = useGetTripById(tripId!)
   const trip = hasStatus(tripResponse, 200) ? tripResponse.data : null
   const deleteMemberMutation = useDeleteTripMember()
   const createInvitationMutation = useCreateTripInvitation()
   const [inviteToken, setInviteToken] = useState<string | null>(null)
+  const [deletingMemberId, setDeletingMemberId] = useState<string | null>(null)
 
   if (isPending) {
     return <LoadingState title="成員資料載入中" description="正在整理旅伴名單與邀請資訊。" />
@@ -34,8 +43,11 @@ export function MembersPage() {
     return <LoadingState title="找不到旅程資料" description="請稍後重試，或回首頁重新選擇旅程。" compact />
   }
 
+  const currentTrip = trip
+  const backTo = searchParams.get('from') === 'create' ? '/' : `/trip/${currentTrip.id}/manage`
+
   const hasExpenseRecord = (membershipId: string) => {
-    return trip.expenses.some(
+    return currentTrip.expenses.some(
       (expense) =>
         expense.payerMembershipId === membershipId ||
         Boolean(expense.splits?.some((split) => split.membershipId === membershipId)),
@@ -43,12 +55,31 @@ export function MembersPage() {
   }
 
   async function handleDeleteMember(memberId: string) {
+    setDeletingMemberId(memberId)
+    const deletingSelf = currentTrip.memberships.some(
+      (member) =>
+        member.id === memberId &&
+        ((session?.user?.id && member.user.id === session.user.id) ||
+          (currentUser?.email && member.user.email === currentUser.email)),
+    )
+
     try {
       await deleteMemberMutation.mutateAsync({ tripId: tripId!, memberId })
+
+      if (deletingSelf) {
+        queryClient.removeQueries({ queryKey: [`/trips/${tripId}`] })
+        await queryClient.invalidateQueries({ queryKey: ['/trips'] })
+        showSuccess('你已離開旅程')
+        navigate('/', { replace: true })
+        return
+      }
+
       await queryClient.invalidateQueries({ queryKey: [`/trips/${tripId}`] })
       showSuccess('已移除成員')
     } catch {
       showError('移除成員失敗', '請稍後再試。')
+    } finally {
+      setDeletingMemberId(null)
     }
   }
 
@@ -80,14 +111,24 @@ export function MembersPage() {
 
   return (
     <div className="space-y-5 pb-4">
-      <MobileHeader title="成員管理" backTo={`/trip/${trip.id}/manage`} />
+      {deleteMemberMutation.isPending || createInvitationMutation.isPending ? (
+        <PageBlockingLoading
+          title={deleteMemberMutation.isPending ? '更新成員中' : '建立邀請中'}
+          description={
+            deleteMemberMutation.isPending
+              ? '正在同步成員變更，請稍候。'
+              : '正在產生邀請連結，請稍候。'
+          }
+        />
+      ) : null}
+      <MobileHeader title="成員管理" backTo={backTo} />
 
       <Card className="border-none bg-[linear-gradient(180deg,rgba(255,253,252,0.96),rgba(243,248,244,0.92))] shadow-float">
         <CardContent className="space-y-4 pt-5">
           <div className="flex items-center justify-between gap-3">
             <div>
               <p className="text-sm text-muted-foreground">旅伴名單</p>
-              <h2 className="text-2xl font-semibold">{trip.memberships.length} 位成員</h2>
+              <h2 className="text-2xl font-semibold">{currentTrip.memberships.length} 位成員</h2>
             </div>
             <Badge tone="green">邀請加入</Badge>
           </div>
@@ -133,9 +174,9 @@ export function MembersPage() {
       </div>
 
       <div className="space-y-3">
-        {trip.memberships.length === 0 ? (
+        {currentTrip.memberships.length === 0 ? (
           <EmptyState title="尚未加入旅伴" description="產生邀請連結分享給朋友，讓他們加入旅程。" />
-        ) : trip.memberships.map((member) => {
+        ) : currentTrip.memberships.map((member) => {
           const locked = hasExpenseRecord(member.id)
 
           return (
@@ -162,7 +203,11 @@ export function MembersPage() {
                       : 'border-[#EBCACA] bg-[#FFF5F5] text-[#C96B6B]'
                   }`}
                 >
-                  <Trash2 className="h-4 w-4" />
+                  {deletingMemberId === member.id ? (
+                    <LoaderCircle className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Trash2 className="h-4 w-4" />
+                  )}
                 </button>
               </CardContent>
             </Card>

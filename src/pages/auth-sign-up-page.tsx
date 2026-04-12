@@ -6,6 +6,7 @@ import { z } from 'zod'
 import { MobileHeader } from '@/components/layout/mobile-header'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
+import { PageBlockingLoading } from '@/components/ui/page-blocking-loading'
 import { queueFlashToast, useToast } from '@/components/ui/toast'
 import { authClient, getAuthErrorMessage } from '@/lib/auth-client'
 
@@ -71,7 +72,7 @@ export function AuthSignUpPage() {
         return
       }
 
-      queueFlashToast({ tone: 'success', title: '註冊成功', description: '帳號已建立，正在為你進入首頁。' })
+      queueFlashToast({ tone: 'success', title: '註冊成功', description: '帳號已建立，正在返回首頁。' })
       navigate(nextPath, { replace: true })
     } catch {
       showError('註冊失敗', '註冊流程尚未完成，或目前帳號服務不可用。')
@@ -82,6 +83,7 @@ export function AuthSignUpPage() {
 
   return (
     <div className="space-y-5 pb-4">
+      {emailPending ? <PageBlockingLoading title="註冊中" description="正在建立帳號並整理邀請流程。" /> : null}
       <MobileHeader title="建立帳號" />
 
       <Card className="border-none bg-[linear-gradient(180deg,rgba(255,253,252,0.96),rgba(240,247,246,0.92))] shadow-float">

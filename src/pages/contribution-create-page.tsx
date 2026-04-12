@@ -10,6 +10,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { DatePickerField } from '@/components/ui/date-picker-field'
 import { EmptyState } from '@/components/ui/empty-state'
 import { LoadingState } from '@/components/ui/loading-state'
+import { PageBlockingLoading } from '@/components/ui/page-blocking-loading'
 import { SectionHeading } from '@/components/ui/section-heading'
 import { queueFlashToast, useToast } from '@/components/ui/toast'
 import { useGetTripById } from '@/api/generated/trips/trips'
@@ -68,7 +69,10 @@ export function ContributionCreatePage() {
 
   return (
     <div className="space-y-5 pb-4">
-      <MobileHeader title="新增公積金" backTo={`/trip/${currentTrip.id}/manage`} />
+      {createContributionMutation.isPending ? (
+        <PageBlockingLoading title="儲存公積金中" description="正在建立存入紀錄並更新共同池。" />
+      ) : null}
+      <MobileHeader title="新增公積金" subtitle={currentTrip.title} backTo="/" />
 
       <Card className="border-none bg-[linear-gradient(180deg,rgba(255,253,252,0.96),rgba(243,248,244,0.92))] shadow-float">
         <CardContent className="space-y-4 pt-5">

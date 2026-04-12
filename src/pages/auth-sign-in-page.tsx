@@ -5,6 +5,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { MobileHeader } from '@/components/layout/mobile-header'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
+import { PageBlockingLoading } from '@/components/ui/page-blocking-loading'
 import { queueFlashToast, useToast } from '@/components/ui/toast'
 import { authClient, getAuthErrorMessage } from '@/lib/auth-client'
 import { isMockAuthEnabled, writeMockSession } from '@/lib/mock-session'
@@ -57,6 +58,7 @@ export function AuthSignInPage() {
 
   return (
     <div className="space-y-5 pb-4">
+      {emailPending ? <PageBlockingLoading title="登入中" description="正在確認帳號並準備進入下一步。" /> : null}
       <MobileHeader title="登入" />
 
       <Card className="border-none bg-[linear-gradient(180deg,rgba(255,253,252,0.96),rgba(240,247,246,0.92))] shadow-float">

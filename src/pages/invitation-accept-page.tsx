@@ -9,6 +9,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { EmptyState } from '@/components/ui/empty-state'
 import { LoadingState } from '@/components/ui/loading-state'
 import { MobileHeader } from '@/components/layout/mobile-header'
+import { PageBlockingLoading } from '@/components/ui/page-blocking-loading'
 import { queueFlashToast, useToast } from '@/components/ui/toast'
 import { hasStatus } from '@/lib/api-response'
 import { authClient } from '@/lib/auth-client'
@@ -106,7 +107,7 @@ export function InvitationAcceptPage() {
           title: '已加入旅程',
           description: `你已加入「${trip.title}」。`,
         })
-        navigate(`/trip/${trip.id}`, { replace: true })
+        navigate('/', { replace: true })
         return
       }
 
@@ -118,6 +119,9 @@ export function InvitationAcceptPage() {
 
   return (
     <div className="space-y-5 pb-4">
+      {acceptInvitationMutation.isPending ? (
+        <PageBlockingLoading title="加入旅程中" description="正在接受邀請並同步旅程資料。" />
+      ) : null}
       <MobileHeader title="加入旅程" backTo="/" />
 
       <Card className="overflow-hidden border-none bg-[linear-gradient(180deg,rgba(255,253,252,0.98),rgba(240,247,246,0.94))] shadow-float">

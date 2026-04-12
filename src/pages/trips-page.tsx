@@ -19,6 +19,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { LoadingState } from "@/components/ui/loading-state";
+import { PageBlockingLoading } from "@/components/ui/page-blocking-loading";
 import { SectionHeading } from "@/components/ui/section-heading";
 import { queueFlashToast, useToast } from "@/components/ui/toast";
 import { useGetTrips } from "@/api/generated/trips/trips";
@@ -132,6 +133,9 @@ export function TripsPage({ sessionUser }: TripsPageProps) {
 
   return (
     <div className="space-y-5 pb-3">
+      {signOutPending ? (
+        <PageBlockingLoading title="登出中" description="正在清除帳號狀態並返回登入頁。" />
+      ) : null}
       <MobileHeader
         title={
           <div className="-mb-20 -mt-16 w-full">
