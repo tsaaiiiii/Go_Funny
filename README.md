@@ -54,6 +54,7 @@ This command generates the frontend client from the backend-owned OpenAPI endpoi
 The UI currently uses local mock-backed app state from `src/lib/seed-data.ts` and `src/lib/app-data.tsx`.
 Data persists in browser `localStorage`, so the MVP frontend flows can be exercised before the backend is ready.
 
-## API Contract Draft
+## API Contract
 
-The current API draft lives in `docs/openapi.draft.yaml`. It is only a frontend planning draft; the final OpenAPI contract should be owned by the backend implementation.
+The frontend currently uses the backend-owned OpenAPI spec at `https://go-funny-backend.onrender.com/openapi.json`.
+This remote contract is the source of truth for code generation and API integration.

@@ -286,18 +286,18 @@
 
 ## 7.1 文件位置
 
-- OpenAPI 草案規格暫時維護於 `docs/openapi.draft.yaml`
-- 最終正式 OpenAPI 規格應由後端維護與提供
+- OpenAPI 規格目前由後端維護，前端以 `https://go-funny-backend.onrender.com/openapi.json` 為準
+- 前端專案不再維護本地 `openapi draft` 檔案
 - `PRD` 保留產品需求與功能範圍，不直接承載完整 API schema
 
 ---
 
 ## 7.2 協作方式
 
-- 前端可先依據 `docs/openapi.draft.yaml` 進行評估與規劃
-- 待後端提供正式 OpenAPI 後，再以正式版本生成型別、client 與 TanStack hooks
+- 前端以後端提供的遠端 OpenAPI 規格進行評估、型別生成與 client 串接
+- 產生型別、client 與 TanStack hooks 時，應以正式遠端規格為輸入來源
 - 後端由專案作者自行實作
-- 若後端實作與目前草案不同，應以實際後端規格為準，再回頭更新 `docs/openapi.draft.yaml` 或以正式 OpenAPI 取代
+- 若後端規格變動，應優先同步更新前端資料契約與相關文件描述
 - 前端生成結果需可重新產生，不應手動深度耦合於單一版本的 generated code
 
 ---

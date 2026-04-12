@@ -17,6 +17,9 @@ pnpm-debug.log*
 .pnpm-store/
 coverage/
 *.tsbuildinfo
+test-results/
+playwright-report/
+blob-report/
 
 .idea/
 .vscode/
