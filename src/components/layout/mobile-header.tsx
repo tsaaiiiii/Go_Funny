@@ -1,10 +1,11 @@
+import type { ReactNode } from 'react'
 import { ChevronLeft, MapPin } from 'lucide-react'
 import { Link } from 'react-router-dom'
 
 import { cn } from '@/lib/utils'
 
 interface MobileHeaderProps {
-  title: string
+  title: ReactNode
   subtitle?: string
   location?: string
   backTo?: string
@@ -24,7 +25,11 @@ export function MobileHeader({ title, subtitle, location, backTo, className }: M
       ) : null}
       <div className="min-w-0 flex-1">
         {subtitle ? <p className="text-sm text-muted-foreground">{subtitle}</p> : null}
-        <h1 className="mt-1 text-[28px] font-semibold tracking-tight text-foreground">{title}</h1>
+        {typeof title === 'string' ? (
+          <h1 className="mt-1 text-[28px] font-semibold tracking-tight text-foreground">{title}</h1>
+        ) : (
+          <div className="mt-1">{title}</div>
+        )}
         {location ? (
           <div className="mt-2 flex items-center gap-1.5 text-sm text-muted-foreground">
             <MapPin className="h-4 w-4" />

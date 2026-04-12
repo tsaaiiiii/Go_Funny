@@ -1,69 +1,95 @@
-import { CalendarDays, LogOut, Pencil, PiggyBank, Plane, SquarePen, Users, Wallet, X } from 'lucide-react'
-import { useEffect, useMemo, useState } from 'react'
-import { createPortal } from 'react-dom'
-import { Link, useNavigate } from 'react-router-dom'
+import {
+  CalendarDays,
+  LogOut,
+  Pencil,
+  PiggyBank,
+  Plane,
+  SquarePen,
+  Users,
+  Wallet,
+  X,
+} from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
+import { Link, useNavigate } from "react-router-dom";
 
-import { MobileHeader } from '@/components/layout/mobile-header'
-import { EmptyState } from '@/components/ui/empty-state'
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent } from '@/components/ui/card'
-import { LoadingState } from '@/components/ui/loading-state'
-import { SectionHeading } from '@/components/ui/section-heading'
-import { queueFlashToast, useToast } from '@/components/ui/toast'
-import { useGetTrips } from '@/api/generated/trips/trips'
-import { hasStatus } from '@/lib/api-response'
-import { authClient } from '@/lib/auth-client'
-import { formatCurrency } from '@/lib/currency'
-import { clearMockSession, MockSession, readMockSession, writeMockSession } from '@/lib/mock-session'
+import { MobileHeader } from "@/components/layout/mobile-header";
+import { EmptyState } from "@/components/ui/empty-state";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { LoadingState } from "@/components/ui/loading-state";
+import { SectionHeading } from "@/components/ui/section-heading";
+import { queueFlashToast, useToast } from "@/components/ui/toast";
+import { useGetTrips } from "@/api/generated/trips/trips";
+import { hasStatus } from "@/lib/api-response";
+import { authClient } from "@/lib/auth-client";
+import { formatCurrency } from "@/lib/currency";
+import {
+  clearMockSession,
+  MockSession,
+  readMockSession,
+  writeMockSession,
+} from "@/lib/mock-session";
 
 interface TripsPageProps {
   sessionUser: {
-    email?: string | null
-    name?: string | null
-  } | null
+    email?: string | null;
+    name?: string | null;
+  } | null;
 }
 
 export function TripsPage({ sessionUser }: TripsPageProps) {
-  const navigate = useNavigate()
-  const { showError, showSuccess } = useToast()
-  const { data: tripsResponse, isPending: tripsPending } = useGetTrips()
-  const trips = hasStatus(tripsResponse, 200) ? tripsResponse.data : []
-  const [mockSession, setMockSession] = useState<MockSession | null>(null)
-  const [profileModalOpen, setProfileModalOpen] = useState(false)
-  const [draftName, setDraftName] = useState('')
-  const [signOutPending, setSignOutPending] = useState(false)
+  const navigate = useNavigate();
+  const { showError, showSuccess } = useToast();
+  const { data: tripsResponse, isPending: tripsPending } = useGetTrips();
+  const trips = hasStatus(tripsResponse, 200) ? tripsResponse.data : [];
+  const [mockSession, setMockSession] = useState<MockSession | null>(null);
+  const [profileModalOpen, setProfileModalOpen] = useState(false);
+  const [draftName, setDraftName] = useState("");
+  const [signOutPending, setSignOutPending] = useState(false);
   const sortedTrips = useMemo(
     () =>
       trips
         .slice()
-        .sort((a, b) => new Date(b.endDate).getTime() - new Date(a.endDate).getTime() || new Date(b.startDate).getTime() - new Date(a.startDate).getTime()),
+        .sort(
+          (a, b) =>
+            new Date(b.endDate).getTime() - new Date(a.endDate).getTime() ||
+            new Date(b.startDate).getTime() - new Date(a.startDate).getTime(),
+        ),
     [trips],
-  )
+  );
   const totalExpense = trips.reduce(
-    (sum, trip) => sum + trip.expenses.reduce((tripSum, expense) => tripSum + expense.amount, 0),
+    (sum, trip) =>
+      sum +
+      trip.expenses.reduce((tripSum, expense) => tripSum + expense.amount, 0),
     0,
-  )
-  const currentUser = sessionUser ?? mockSession?.user
+  );
+  const currentUser = sessionUser ?? mockSession?.user;
 
   useEffect(() => {
-    setMockSession(readMockSession())
-  }, [])
+    setMockSession(readMockSession());
+  }, []);
 
   if (tripsPending) {
-    return <LoadingState title="旅程資料載入中" description="正在整理你的旅程、支出與首頁摘要。" />
+    return (
+      <LoadingState
+        title="旅程資料載入中"
+        description="正在整理你的旅程、支出與首頁摘要。"
+      />
+    );
   }
 
   function openProfileModal() {
-    setDraftName(currentUser?.name ?? '')
-    setProfileModalOpen(true)
+    setDraftName(currentUser?.name ?? "");
+    setProfileModalOpen(true);
   }
 
   function handleSaveProfile() {
-    const nextName = draftName.trim()
+    const nextName = draftName.trim();
     if (!nextName) {
-      showError('名稱不可為空白')
-      return
+      showError("名稱不可為空白");
+      return;
     }
 
     if (mockSession) {
@@ -73,59 +99,76 @@ export function TripsPage({ sessionUser }: TripsPageProps) {
           ...mockSession.user,
           name: nextName,
         },
-      }
-      writeMockSession(nextSession)
-      setMockSession(nextSession)
-      showSuccess('個人資料已更新')
-      window.setTimeout(() => setProfileModalOpen(false), 400)
-      return
+      };
+      writeMockSession(nextSession);
+      setMockSession(nextSession);
+      showSuccess("個人資料已更新");
+      window.setTimeout(() => setProfileModalOpen(false), 400);
+      return;
     }
 
-    showError('目前僅 mock 登入可直接修改名稱')
+    showError("目前僅 mock 登入可直接修改名稱");
   }
 
   async function handleSignOut() {
-    setSignOutPending(true)
+    setSignOutPending(true);
 
     try {
       if (sessionUser) {
-        await authClient.signOut()
+        await authClient.signOut();
       }
 
-      clearMockSession()
-      setMockSession(null)
-      setProfileModalOpen(false)
-      queueFlashToast({ tone: 'success', title: '已登出' })
-      navigate('/login', { replace: true })
+      clearMockSession();
+      setMockSession(null);
+      setProfileModalOpen(false);
+      queueFlashToast({ tone: "success", title: "已登出" });
+      navigate("/login", { replace: true });
     } catch {
-      showError('登出失敗', '請稍後再試。')
+      showError("登出失敗", "請稍後再試。");
     } finally {
-      setSignOutPending(false)
+      setSignOutPending(false);
     }
   }
 
   return (
     <div className="space-y-5 pb-3">
-      <MobileHeader title="Go Funny" />
+      <MobileHeader
+        title={
+          <div className="-mb-20 -mt-16 w-full">
+            <img
+              src="/cover.png"
+              alt="Go Funny"
+              className="block h-auto w-full object-contain object-center drop-shadow-[0_14px_28px_rgba(105,154,164,0.16)]"
+            />
+          </div>
+        }
+      />
 
       <Card className="overflow-hidden border-none bg-[linear-gradient(135deg,rgba(95,168,184,0.92),rgba(127,167,138,0.82))] text-white shadow-float">
-        <CardContent className="space-y-4 p-5">
+        <CardContent className="space-y-4 py-4 px-5">
           <div className="space-y-2">
             <p className="text-sm text-white/80">這次旅行，帳目清清楚楚</p>
-            <h2 className="text-2xl font-semibold leading-tight">用最自然的方式記錄每一筆旅途花費。</h2>
+            <h2 className="text-base font-semibold leading-tight">
+              用最自然的方式記錄每一筆旅途花費。
+            </h2>
           </div>
           <div className="grid grid-cols-2 gap-3">
-            <div className="rounded-2xl bg-white/16 p-3 backdrop-blur-sm">
+            <div className="rounded-2xl bg-white/16 px-2 backdrop-blur-sm">
               <p className="text-xs text-white/75">進行中旅程</p>
               <p className="mt-1 text-xl font-semibold">{trips.length}</p>
             </div>
-            <div className="rounded-2xl bg-white/16 p-3 backdrop-blur-sm">
+            <div className="rounded-2xl bg-white/16 px-2 backdrop-blur-sm">
               <p className="text-xs text-white/75">總支出</p>
-              <p className="mt-1 text-xl font-semibold">{formatCurrency(totalExpense)}</p>
+              <p className="mt-1 text-xl font-semibold">
+                {formatCurrency(totalExpense)}
+              </p>
             </div>
           </div>
           <Link to="/trip/new" className="block">
-            <Button variant="outline" className="w-full border-white/35 bg-white/18 text-white hover:bg-white/22">
+            <Button
+              variant="outline"
+              className="w-full border-white/35 bg-white/18 text-white hover:bg-white/22"
+            >
               建立新旅程
             </Button>
           </Link>
@@ -138,7 +181,9 @@ export function TripsPage({ sessionUser }: TripsPageProps) {
             <div className="flex items-center justify-between gap-3">
               <div>
                 <p className="font-medium text-foreground">帳號資訊</p>
-                <p className="text-sm text-muted-foreground">{currentUser.email}</p>
+                <p className="text-sm text-muted-foreground">
+                  {currentUser.email}
+                </p>
               </div>
               <div className="flex items-center gap-2">
                 <Badge tone="green">已登入</Badge>
@@ -154,11 +199,18 @@ export function TripsPage({ sessionUser }: TripsPageProps) {
             </div>
             <div className="rounded-2xl bg-[#F6FBFC] px-4 py-3">
               <p className="text-xs text-muted-foreground">名稱</p>
-              <p className="mt-1 text-base font-semibold text-foreground">{currentUser.name || '未設定名稱'}</p>
+              <p className="mt-1 text-base font-semibold text-foreground">
+                {currentUser.name || "未設定名稱"}
+              </p>
             </div>
-            <Button variant="outline" className="w-full gap-2" onClick={handleSignOut} disabled={signOutPending}>
+            <Button
+              variant="outline"
+              className="w-full gap-2"
+              onClick={handleSignOut}
+              disabled={signOutPending}
+            >
               <LogOut className="h-4 w-4" />
-              {signOutPending ? '登出中...' : '登出'}
+              {signOutPending ? "登出中..." : "登出"}
             </Button>
           </CardContent>
         </Card>
@@ -168,15 +220,23 @@ export function TripsPage({ sessionUser }: TripsPageProps) {
             <div className="flex items-center justify-between gap-3">
               <div>
                 <p className="font-medium text-foreground">帳號與同步</p>
-                <p className="text-sm text-muted-foreground">目前可使用 Email 登入與註冊。</p>
+                <p className="text-sm text-muted-foreground">
+                  目前可使用 Email 登入與註冊。
+                </p>
               </div>
               <Badge tone="blue">Beta</Badge>
             </div>
             <div className="grid grid-cols-2 gap-3">
-              <Link to="/login" className="inline-flex h-11 items-center justify-center rounded-full border border-border bg-card px-4 text-sm font-medium text-foreground transition-all hover:bg-white">
+              <Link
+                to="/login"
+                className="inline-flex h-11 items-center justify-center rounded-full border border-border bg-card px-4 text-sm font-medium text-foreground transition-all hover:bg-white"
+              >
                 登入
               </Link>
-              <Link to="/register" className="inline-flex h-11 items-center justify-center rounded-full bg-primary px-4 text-sm font-medium text-primary-foreground shadow-soft transition-all hover:bg-[#4E99A9]">
+              <Link
+                to="/register"
+                className="inline-flex h-11 items-center justify-center rounded-full bg-primary px-4 text-sm font-medium text-primary-foreground shadow-soft transition-all hover:bg-[#4E99A9]"
+              >
                 註冊
               </Link>
             </div>
@@ -200,22 +260,35 @@ export function TripsPage({ sessionUser }: TripsPageProps) {
           />
         ) : (
           sortedTrips.map((trip) => {
-            const totalExpenseByTrip = trip.expenses.reduce((sum, expense) => sum + expense.amount, 0)
+            const totalExpenseByTrip = trip.expenses.reduce(
+              (sum, expense) => sum + expense.amount,
+              0,
+            );
 
             return (
-              <Card key={trip.id} className="overflow-hidden transition-transform duration-200 active:scale-[0.99]">
-                  <CardContent className="space-y-4 pt-5">
+              <Card
+                key={trip.id}
+                className="overflow-hidden transition-transform duration-200 active:scale-[0.99]"
+              >
+                <CardContent className="space-y-4 pt-5">
                   <div className="flex items-start justify-between gap-4">
                     <div className="space-y-2">
                       <div className="flex items-center gap-2">
-                        <Badge tone={trip.mode === 'expense' ? 'blue' : 'green'}>
-                          {trip.mode === 'expense' ? '一般記帳' : '公積金'}
+                        <Badge
+                          tone={trip.mode === "expense" ? "blue" : "green"}
+                        >
+                          {trip.mode === "expense" ? "一般記帳" : "公積金"}
                         </Badge>
-                        <span className="text-xs text-muted-foreground">{trip.location || '尚未設定地點'}</span>
+                        <span className="text-xs text-muted-foreground">
+                          {trip.location || "尚未設定地點"}
+                        </span>
                       </div>
                       <div>
                         <h2 className="text-lg font-semibold">{trip.title}</h2>
-                        <p className="mt-1 text-sm text-muted-foreground">{new Date(trip.startDate).toLocaleDateString()} — {new Date(trip.endDate).toLocaleDateString()}</p>
+                        <p className="mt-1 text-sm text-muted-foreground">
+                          {new Date(trip.startDate).toLocaleDateString()} —{" "}
+                          {new Date(trip.endDate).toLocaleDateString()}
+                        </p>
                       </div>
                     </div>
                     <Link
@@ -229,53 +302,61 @@ export function TripsPage({ sessionUser }: TripsPageProps) {
 
                   <div className="grid grid-cols-3 gap-3 text-sm">
                     <div className="rounded-2xl bg-[#F6FBFC] p-3">
-                        <div className="mb-1 flex items-center gap-1 text-muted-foreground">
-                          <Users className="h-4 w-4" />
-                          成員
-                        </div>
-                        <p className="font-semibold">{trip.memberships.length} 位</p>
+                      <div className="mb-1 flex items-center gap-1 text-muted-foreground">
+                        <Users className="h-4 w-4" />
+                        成員
                       </div>
-                      <div className="rounded-2xl bg-[#F8FBF8] p-3">
-                        <div className="mb-1 flex items-center gap-1 text-muted-foreground">
-                          <Wallet className="h-4 w-4" />
-                          支出
-                        </div>
-                        <p className="font-semibold">{formatCurrency(totalExpenseByTrip)}</p>
-                      </div>
-                      <div className="rounded-2xl bg-[#FAF7F3] p-3">
-                        <div className="mb-1 flex items-center gap-1 text-muted-foreground">
-                          <CalendarDays className="h-4 w-4" />
-                          紀錄
-                        </div>
-                        <p className="font-semibold">{trip.expenses.length + trip.contributions.length} 筆</p>
-                      </div>
+                      <p className="font-semibold">
+                        {trip.memberships.length} 位
+                      </p>
                     </div>
+                    <div className="rounded-2xl bg-[#F8FBF8] p-3">
+                      <div className="mb-1 flex items-center gap-1 text-muted-foreground">
+                        <Wallet className="h-4 w-4" />
+                        支出
+                      </div>
+                      <p className="font-semibold">
+                        {formatCurrency(totalExpenseByTrip)}
+                      </p>
+                    </div>
+                    <div className="rounded-2xl bg-[#FAF7F3] p-3">
+                      <div className="mb-1 flex items-center gap-1 text-muted-foreground">
+                        <CalendarDays className="h-4 w-4" />
+                        紀錄
+                      </div>
+                      <p className="font-semibold">
+                        {trip.expenses.length + trip.contributions.length} 筆
+                      </p>
+                    </div>
+                  </div>
 
-                    <div className={`grid gap-3 ${trip.mode === 'pool' ? 'grid-cols-2' : 'grid-cols-1'}`}>
+                  <div
+                    className={`grid gap-3 ${trip.mode === "pool" ? "grid-cols-2" : "grid-cols-1"}`}
+                  >
+                    <Link
+                      to={`/trip/${trip.id}`}
+                      className="inline-flex h-11 items-center justify-center rounded-full bg-primary px-4 text-sm font-medium text-primary-foreground shadow-soft transition-all hover:bg-[#4E99A9]"
+                    >
+                      查看明細
+                    </Link>
+                    {trip.mode === "pool" ? (
                       <Link
-                        to={`/trip/${trip.id}`}
-                        className="inline-flex h-11 items-center justify-center rounded-full bg-primary px-4 text-sm font-medium text-primary-foreground shadow-soft transition-all hover:bg-[#4E99A9]"
+                        to={`/trip/${trip.id}/new-contribution`}
+                        className="inline-flex h-11 items-center justify-center gap-1 rounded-full border border-[#CFE4D4] bg-[#F3FAF5] px-4 text-sm font-medium text-secondary transition-all hover:bg-[#EAF6EE]"
                       >
-                        查看明細
+                        <PiggyBank className="h-4 w-4" />
+                        新增公積金
                       </Link>
-                      {trip.mode === 'pool' ? (
-                        <Link
-                          to={`/trip/${trip.id}/new-contribution`}
-                          className="inline-flex h-11 items-center justify-center gap-1 rounded-full border border-[#CFE4D4] bg-[#F3FAF5] px-4 text-sm font-medium text-secondary transition-all hover:bg-[#EAF6EE]"
-                        >
-                          <PiggyBank className="h-4 w-4" />
-                          新增公積金
-                        </Link>
-                      ) : null}
-                    </div>
-                  </CardContent>
-                </Card>
-            )
+                    ) : null}
+                  </div>
+                </CardContent>
+              </Card>
+            );
           })
         )}
       </div>
 
-      {profileModalOpen && typeof document !== 'undefined'
+      {profileModalOpen && typeof document !== "undefined"
         ? createPortal(
             <div className="fixed inset-0 z-30">
               <div
@@ -287,8 +368,12 @@ export function TripsPage({ sessionUser }: TripsPageProps) {
                 <div className="w-full max-w-sm rounded-3xl border border-[#D9E8EB] bg-[linear-gradient(180deg,#FCFEFE_0%,#F4FAFB_100%)] p-5 shadow-float">
                   <div className="flex items-start justify-between gap-3">
                     <div>
-                      <h3 className="text-lg font-semibold text-foreground">修改個人 info</h3>
-                      <p className="mt-1 text-sm text-muted-foreground">調整你的顯示名稱</p>
+                      <h3 className="text-lg font-semibold text-foreground">
+                        修改個人 info
+                      </h3>
+                      <p className="mt-1 text-sm text-muted-foreground">
+                        調整你的顯示名稱
+                      </p>
                     </div>
                     <button
                       type="button"
@@ -302,11 +387,15 @@ export function TripsPage({ sessionUser }: TripsPageProps) {
                   <div className="mt-4 space-y-3">
                     <div className="rounded-2xl bg-white/70 px-3 py-2">
                       <p className="text-[11px] text-muted-foreground">帳號</p>
-                      <p className="text-sm font-medium text-foreground">{currentUser?.email}</p>
+                      <p className="text-sm font-medium text-foreground">
+                        {currentUser?.email}
+                      </p>
                     </div>
 
                     <div className="space-y-1.5">
-                      <label className="text-sm font-medium text-foreground">名稱</label>
+                      <label className="text-sm font-medium text-foreground">
+                        名稱
+                      </label>
                       <input
                         className="h-11 w-full rounded-2xl border border-border bg-white px-4 outline-none focus:border-primary"
                         value={draftName}
@@ -316,12 +405,13 @@ export function TripsPage({ sessionUser }: TripsPageProps) {
                   </div>
 
                   <div className="mt-5 grid grid-cols-2 gap-3">
-                    <Button variant="outline" onClick={() => setProfileModalOpen(false)}>
+                    <Button
+                      variant="outline"
+                      onClick={() => setProfileModalOpen(false)}
+                    >
                       取消
                     </Button>
-                    <Button onClick={handleSaveProfile}>
-                      儲存
-                    </Button>
+                    <Button onClick={handleSaveProfile}>儲存</Button>
                   </div>
                 </div>
               </div>
@@ -330,5 +420,5 @@ export function TripsPage({ sessionUser }: TripsPageProps) {
           )
         : null}
     </div>
-  )
+  );
 }
