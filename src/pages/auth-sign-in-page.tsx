@@ -26,6 +26,7 @@ export function AuthSignInPage() {
     if (isMockAuthEnabled() && email === 'example.com' && password === 'example') {
       writeMockSession({
         user: {
+          id: 'example.com',
           email: 'example.com',
           name: 'example',
         },

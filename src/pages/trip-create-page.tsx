@@ -17,7 +17,9 @@ import { SectionHeading } from '@/components/ui/section-heading'
 import { queueFlashToast, useToast } from '@/components/ui/toast'
 import { useGetTripById, useCreateTrip, useUpdateTrip, useDeleteTrip } from '@/api/generated/trips/trips'
 import { hasStatus } from '@/lib/api-response'
+import { authClient } from '@/lib/auth-client'
 import { getTodayInputValue } from '@/lib/date'
+import { readMockSession } from '@/lib/mock-session'
 import type { TripMode } from '@/api/generated/model'
 
 const formatDateChip = (value: string) => {
@@ -58,10 +60,14 @@ export function TripCreatePage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const { showError, showSuccess } = useToast()
+  const { data: session } = authClient.useSession()
+  const mockSession = readMockSession()
+  const currentUser = session?.user ?? mockSession?.user ?? null
   const { data: tripResponse, isPending } = useGetTripById(tripId!, { query: { enabled: !!tripId } })
   const editingTrip = hasStatus(tripResponse, 200) ? tripResponse.data : null
   const isEditingRoute = Boolean(tripId)
   const isEditing = Boolean(tripId && editingTrip)
+  const canDeleteTrip = Boolean(editingTrip && currentUser?.id && editingTrip.createdByUserId === currentUser.id)
   const createTripMutation = useCreateTrip()
   const updateTripMutation = useUpdateTrip()
   const deleteTripMutation = useDeleteTrip()
@@ -348,7 +354,7 @@ export function TripCreatePage() {
       </Card>
 
       <div className="flex gap-3">
-        {isEditing ? (
+        {isEditing && canDeleteTrip ? (
           <button
             type="button"
             onClick={handleDelete}

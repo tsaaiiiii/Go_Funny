@@ -10,6 +10,7 @@ import type { TripMode } from './tripMode';
 export interface Trip {
   /** @minLength 1 */
   id: string;
+  createdByUserId: string;
   title: string;
   /** @nullable */
   location: string | null;

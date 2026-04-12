@@ -58,3 +58,6 @@ Data persists in browser `localStorage`, so the MVP frontend flows can be exerci
 
 The frontend currently uses the backend-owned OpenAPI spec at `https://go-funny-backend.onrender.com/openapi.json`.
 This remote contract is the source of truth for code generation and API integration.
+
+- `Trip.createdByUserId` is used by the frontend to determine owner-only destructive actions.
+- Only the trip creator can see delete controls for removing members and deleting the trip.

@@ -1,5 +1,6 @@
 export interface MockSession {
   user: {
+    id: string
     email: string
     name: string
   }
@@ -26,7 +27,25 @@ export function readMockSession() {
 
   try {
     const stored = window.localStorage.getItem(storageKey)
-    return stored ? (JSON.parse(stored) as MockSession) : null
+    if (!stored) {
+      return null
+    }
+
+    const parsed = JSON.parse(stored) as Partial<MockSession>
+    const email = parsed.user?.email?.trim()
+    const name = parsed.user?.name?.trim()
+
+    if (!email || !name) {
+      return null
+    }
+
+    return {
+      user: {
+        id: parsed.user?.id?.trim() || email,
+        email,
+        name,
+      },
+    }
   } catch {
     return null
   }

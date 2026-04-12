@@ -44,6 +44,7 @@ export function MembersPage() {
   }
 
   const currentTrip = trip
+  const isTripOwner = Boolean(currentUser?.id && currentTrip.createdByUserId === currentUser.id)
   const backTo = searchParams.get('from') === 'create' ? '/' : `/trip/${currentTrip.id}/manage`
 
   const hasExpenseRecord = (membershipId: string) => {
@@ -167,10 +168,14 @@ export function MembersPage() {
 
       <div className="flex items-center justify-between gap-3">
         <SectionHeading title="目前成員" />
-        <p className="inline-flex items-center gap-1 text-right text-xs font-medium text-danger">
-          <AlertTriangle className="h-3.5 w-3.5" />
-          已有支出紀錄的成員不可刪除
-        </p>
+        {isTripOwner ? (
+          <p className="inline-flex items-center gap-1 text-right text-xs font-medium text-danger">
+            <AlertTriangle className="h-3.5 w-3.5" />
+            已有支出紀錄的成員不可刪除
+          </p>
+        ) : (
+          <p className="text-right text-xs font-medium text-muted-foreground">僅旅程建立者可移除成員</p>
+        )}
       </div>
 
       <div className="space-y-3">
@@ -193,22 +198,24 @@ export function MembersPage() {
                     </p>
                   </div>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => handleDeleteMember(member.id)}
-                  disabled={locked || deleteMemberMutation.isPending}
-                  className={`inline-flex h-10 w-10 items-center justify-center rounded-full border ${
-                    locked || deleteMemberMutation.isPending
-                      ? 'cursor-not-allowed border-border bg-[#F4F7F8] text-muted-foreground'
-                      : 'border-[#EBCACA] bg-[#FFF5F5] text-[#C96B6B]'
-                  }`}
-                >
-                  {deletingMemberId === member.id ? (
-                    <LoaderCircle className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Trash2 className="h-4 w-4" />
-                  )}
-                </button>
+                {isTripOwner ? (
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteMember(member.id)}
+                    disabled={locked || deleteMemberMutation.isPending}
+                    className={`inline-flex h-10 w-10 items-center justify-center rounded-full border ${
+                      locked || deleteMemberMutation.isPending
+                        ? 'cursor-not-allowed border-border bg-[#F4F7F8] text-muted-foreground'
+                        : 'border-[#EBCACA] bg-[#FFF5F5] text-[#C96B6B]'
+                    }`}
+                  >
+                    {deletingMemberId === member.id ? (
+                      <LoaderCircle className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Trash2 className="h-4 w-4" />
+                    )}
+                  </button>
+                ) : null}
               </CardContent>
             </Card>
           )
