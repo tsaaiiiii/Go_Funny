@@ -15,7 +15,18 @@ import { PageBlockingLoading } from '@/components/ui/page-blocking-loading'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { SectionHeading } from '@/components/ui/section-heading'
 import { queueFlashToast, useToast } from '@/components/ui/toast'
-import { getTrips, useGetTripById, useCreateTrip, useUpdateTrip, useDeleteTrip } from '@/api/generated/trips/trips'
+import {
+  getTrips,
+  useGetTripById,
+  useCreateTrip,
+  useUpdateTrip,
+  useDeleteTrip,
+  getGetTripByIdQueryKey,
+} from '@/api/generated/trips/trips'
+import { getGetTripExpensesQueryKey } from '@/api/generated/expenses/expenses'
+import { getGetTripContributionsQueryKey } from '@/api/generated/contributions/contributions'
+import { getGetTripSettlementQueryKey } from '@/api/generated/settlements/settlements'
+import { getGetTripMembersQueryKey } from '@/api/generated/members/members'
 import { useCreateTripInvitation } from '@/api/generated/invitations/invitations'
 import { hasStatus } from '@/lib/api-response'
 import { authClient } from '@/lib/auth-client'
@@ -165,16 +176,17 @@ export function TripCreatePage() {
     }
 
     if (isEditing && editingTrip) {
+      if (
+        modeChanged &&
+        !window.confirm('切換模式後，現有明細與結算資料會被重置，確定要儲存嗎？')
+      ) {
+        return
+      }
+
+      setUpdateFlowPending(true)
+      let updateSucceeded = false
+
       try {
-        if (
-          modeChanged &&
-          !window.confirm('切換模式後，現有明細與結算資料會被重置，確定要儲存嗎？')
-        ) {
-          return
-        }
-
-        setUpdateFlowPending(true)
-
         const result = await updateTripMutation.mutateAsync({
           tripId: editingTrip.id,
           data: {
@@ -192,11 +204,25 @@ export function TripCreatePage() {
           return
         }
 
-        await queryClient.invalidateQueries({ queryKey: ['/trips'] })
-        showSuccess('旅程已更新')
-        setUpdateFlowPending(false)
+        updateSucceeded = true
+        const tripScopedQueryKeys = [
+          getGetTripByIdQueryKey(editingTrip.id),
+          getGetTripExpensesQueryKey(editingTrip.id),
+          getGetTripContributionsQueryKey(editingTrip.id),
+          getGetTripSettlementQueryKey(editingTrip.id),
+          getGetTripMembersQueryKey(editingTrip.id),
+        ]
+        tripScopedQueryKeys.forEach((queryKey) => {
+          queryClient.removeQueries({ queryKey })
+        })
+        await refreshTripsList()
+        queueFlashToast({ tone: 'success', title: '旅程已更新' })
+        navigate('/', { replace: true })
       } catch {
-        showError('儲存失敗', '請稍後再試。')
+        showError(
+          updateSucceeded ? '首頁資料更新失敗' : '儲存失敗',
+          updateSucceeded ? '旅程已更新，但目前無法重新載入首頁列表，請稍後再試。' : '請稍後再試。',
+        )
         setUpdateFlowPending(false)
       }
       return

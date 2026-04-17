@@ -1,4 +1,4 @@
-import { ArrowRight } from 'lucide-react'
+import { ArrowRight, AlertCircle, Coins } from 'lucide-react'
 import { useParams } from 'react-router-dom'
 
 import { MobileHeader } from '@/components/layout/mobile-header'
@@ -31,6 +31,26 @@ export function SettlementPage() {
   const totalContribution = trip.contributions.reduce((sum, contribution) => sum + contribution.amount, 0)
   const poolRemaining = totalContribution - totalExpense
   const poolShortage = Math.max(0, -poolRemaining)
+  const unallocatedExpenses =
+    trip.mode === 'expense'
+      ? trip.expenses
+          .map((expense) => {
+            const splitSum = expense.splits.reduce((sum, split) => sum + split.amount, 0)
+            const unallocated = expense.amount - splitSum
+            if (unallocated <= 0) return null
+            const payer = trip.memberships.find((member) => member.id === expense.payerMembershipId)
+            return {
+              expenseId: expense.id,
+              title: expense.title,
+              amount: expense.amount,
+              splitCount: expense.splits.length,
+              splitType: expense.splitType,
+              payerName: payer?.user.name ?? '未指定付款人',
+              unallocated,
+            }
+          })
+          .filter((item): item is NonNullable<typeof item> => item !== null)
+      : []
   const summaryTitle =
     trip.mode === 'pool'
       ? poolShortage > 0
@@ -72,15 +92,66 @@ export function SettlementPage() {
       </Card>
 
       {settlement.unallocated > 0 ? (
-        <Card className="border-none bg-[#FFF6EF] shadow-soft">
-          <CardContent className="space-y-2 pt-5">
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <p className="text-sm font-semibold text-[#9A5A2E]">未分配金額</p>
-                <p className="text-xs leading-5 text-[#9A5A2E]/80">這筆金額不會自動進入任何人的債務，請自行決定怎麼處理。</p>
+        <Card className="overflow-hidden border-none bg-[#FFF1E2] shadow-soft">
+          <CardContent className="space-y-4 pt-5">
+            <div className="flex items-start gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/70 text-[#B66A2E]">
+                <AlertCircle className="h-5 w-5" />
               </div>
-              <span className="shrink-0 text-xl font-semibold text-[#9A5A2E]">{formatCurrency(settlement.unallocated)}</span>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-baseline justify-between gap-3">
+                  <p className="text-sm font-semibold text-[#7A4422]">未分配金額</p>
+                  <span className="text-2xl font-semibold tracking-tight text-[#9A5A2E]">
+                    {formatCurrency(settlement.unallocated)}
+                  </span>
+                </div>
+                <p className="mt-1 text-xs leading-5 text-[#7A4422]/75">
+                  這筆金額不會自動進入任何人的債務，請和旅伴討論後自行決定怎麼處理。
+                </p>
+              </div>
             </div>
+
+            {trip.mode === 'expense' && unallocatedExpenses.length > 0 ? (
+              <div className="space-y-2 rounded-3xl bg-white/85 p-3">
+                <div className="flex items-center justify-between px-1">
+                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#9A5A2E]/80">明細</p>
+                  <span className="text-[11px] text-[#9A5A2E]/70">{unallocatedExpenses.length} 筆</span>
+                </div>
+                <ul className="space-y-2">
+                  {unallocatedExpenses.map((item) => (
+                    <li
+                      key={item.expenseId}
+                      className="rounded-2xl bg-[#FFFBF4] px-3 py-3 text-xs leading-5 text-[#7A4422]"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#F5DDC2] text-[11px] font-semibold text-[#7A4422]">
+                          {item.payerName.charAt(0).toUpperCase()}
+                        </div>
+                        <p className="min-w-0 flex-1 truncate text-sm font-medium text-[#5C341A]">
+                          {item.title}
+                        </p>
+                        <span className="shrink-0 rounded-full bg-[#F5DDC2] px-2.5 py-1 text-xs font-semibold text-[#9A5A2E]">
+                          +{formatCurrency(item.unallocated)}
+                        </span>
+                      </div>
+                      <p className="mt-1.5 pl-11 text-[11px] leading-5 text-[#7A4422]/80">
+                        {item.payerName} 付 {formatCurrency(item.amount)}，{item.splitCount} 人平分後剩下 {formatCurrency(item.unallocated)}。
+                      </p>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+
+            {trip.mode === 'pool' ? (
+              <div className="flex items-start gap-2.5 rounded-2xl bg-white/85 px-3 py-3 text-xs leading-5 text-[#7A4422]">
+                <Coins className="mt-0.5 h-4 w-4 shrink-0 text-[#B66A2E]" />
+                <p>
+                  共同池總支出 <span className="font-semibold">{formatCurrency(totalExpense)}</span> 平均給 {trip.memberships.length} 人後，因無條件捨去產生{' '}
+                  <span className="font-semibold">{formatCurrency(settlement.unallocated)}</span> 差額。
+                </p>
+              </div>
+            ) : null}
           </CardContent>
         </Card>
       ) : null}

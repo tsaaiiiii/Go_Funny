@@ -8,6 +8,7 @@ import {
   useMemo,
   useState,
 } from 'react'
+import { useLocation } from 'react-router-dom'
 
 import { cn } from '@/lib/utils'
 
@@ -34,6 +35,9 @@ type ToastContextValue = {
 }
 
 const flashStorageKey = 'app-flash-toast'
+const flashToastTtl = 5_000
+
+type FlashToastEnvelope = ToastInput & { createdAt: number }
 
 const ToastContext = createContext<ToastContextValue | null>(null)
 
@@ -79,7 +83,12 @@ const readFlashToast = (): ToastInput | null => {
   window.sessionStorage.removeItem(flashStorageKey)
 
   try {
-    return JSON.parse(raw) as ToastInput
+    const envelope = JSON.parse(raw) as FlashToastEnvelope
+    if (typeof envelope.createdAt !== 'number' || Date.now() - envelope.createdAt > flashToastTtl) {
+      return null
+    }
+    const { createdAt: _createdAt, ...toast } = envelope
+    return toast
   } catch {
     return null
   }
@@ -90,11 +99,13 @@ export const queueFlashToast = (toast: ToastInput) => {
     return
   }
 
-  window.sessionStorage.setItem(flashStorageKey, JSON.stringify(toast))
+  const envelope: FlashToastEnvelope = { ...toast, createdAt: Date.now() }
+  window.sessionStorage.setItem(flashStorageKey, JSON.stringify(envelope))
 }
 
 export function ToastProvider({ children }: PropsWithChildren) {
   const [toasts, setToasts] = useState<ToastItem[]>([])
+  const location = useLocation()
 
   const dismissToast = useCallback((id: number) => {
     setToasts((current) => current.filter((toast) => toast.id !== id))
@@ -117,7 +128,7 @@ export function ToastProvider({ children }: PropsWithChildren) {
     if (flashToast) {
       showToast(flashToast)
     }
-  }, [showToast])
+  }, [showToast, location.pathname, location.search])
 
   useEffect(() => {
     if (toasts.length === 0) {

@@ -111,6 +111,12 @@ export function InvitationAcceptPage() {
         return
       }
 
+      if (response.status === 400 && response.data.code === 'business_error') {
+        showError('無法加入旅程', response.data.message)
+        navigate('/', { replace: true })
+        return
+      }
+
       showError('加入旅程失敗', response.data.message)
     } catch {
       showError('加入旅程失敗', '請稍後再試。')

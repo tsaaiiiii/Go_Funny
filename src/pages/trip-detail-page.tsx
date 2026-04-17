@@ -39,22 +39,13 @@ const formatDayLabel = (dateString: string) => {
   }).format(date)
 }
 
-const isToday = (dateString: string) => {
-  return dateString === getTodayInputValue()
-}
-
 const allDateKey = 'all'
 
-const findDefaultSelectedDate = (expenseDates: string[], tripStartDate: string) => {
+const findDefaultSelectedDate = (expenseDates: string[]) => {
   const today = getTodayInputValue()
 
   if (expenseDates.includes(today)) {
     return today
-  }
-
-  if (expenseDates.length > 0) {
-    const latestExpenseDate = [...expenseDates].sort()[expenseDates.length - 1]
-    return latestExpenseDate ?? tripStartDate
   }
 
   return allDateKey
@@ -99,18 +90,42 @@ export function TripDetailPage() {
     () => trip?.expenses.map((expense) => toDateInputValue(expense.date)) ?? [],
     [trip?.expenses],
   )
-  const [selectedDate, setSelectedDate] = useState<string>(findDefaultSelectedDate(expenseDates, startDateStr))
+  const todayStr = getTodayInputValue()
+  const todayInTripRange = tripDates.includes(todayStr)
+  const [selectedDate, setSelectedDate] = useState<string>(findDefaultSelectedDate(expenseDates))
 
   useEffect(() => {
     if (!trip) {
       return
     }
 
-    const nextDate = findDefaultSelectedDate(expenseDates, startDateStr)
+    const nextDate = findDefaultSelectedDate(expenseDates)
     setSelectedDate((current: string) =>
-      current === allDateKey || tripDates.includes(current) ? current : nextDate,
+      current === allDateKey || tripDates.includes(current) || current === todayStr
+        ? current
+        : nextDate,
     )
-  }, [trip, startDateStr, expenseDates, tripDates])
+  }, [trip, expenseDates, tripDates, todayStr])
+
+  const dateTabs = useMemo(() => {
+    const tabs: { key: string; date: string; label: string; isToday: boolean }[] = []
+
+    if (!todayInTripRange) {
+      tabs.push({ key: todayStr, date: todayStr, label: '今日', isToday: true })
+    }
+
+    for (const date of tripDates) {
+      const matchToday = date === todayStr
+      tabs.push({
+        key: date,
+        date,
+        label: matchToday ? `今日(${formatDayLabel(date)})` : formatDayLabel(date),
+        isToday: matchToday,
+      })
+    }
+
+    return tabs
+  }, [tripDates, todayStr, todayInTripRange])
 
   if (isPending) {
     return <LoadingState title="旅程明細載入中" description="正在整理這趟旅程的支出與記錄。" />
@@ -206,24 +221,23 @@ export function TripDetailPage() {
           >
             <p className={`text-sm font-medium ${selectedDate === allDateKey ? 'text-primary' : 'text-foreground'}`}>全部</p>
           </button>
-          {tripDates.map((date) => {
-            const active = selectedDate === date
-            const today = isToday(date)
+          {dateTabs.map((tab) => {
+            const active = selectedDate === tab.date
 
             return (
               <button
-                key={date}
+                key={tab.key}
                 type="button"
-                onClick={() => setSelectedDate(date)}
+                onClick={() => setSelectedDate(tab.date)}
                 className={`min-w-fit rounded-2xl border px-3 py-2 text-center transition-colors ${
                   active
                     ? 'border-primary bg-[#EEF7F8]'
-                    : today
+                    : tab.isToday
                       ? 'border-[#CFE5EA] bg-[#F7FBFC]'
                       : 'border-border bg-white'
                 }`}
               >
-                <p className={`text-sm font-medium ${active ? 'text-primary' : today ? 'text-[#4F7E8A]' : 'text-foreground'}`}>{formatDayLabel(date)}</p>
+                <p className={`text-sm font-medium ${active ? 'text-primary' : tab.isToday ? 'text-[#4F7E8A]' : 'text-foreground'}`}>{tab.label}</p>
               </button>
             )
           })}
