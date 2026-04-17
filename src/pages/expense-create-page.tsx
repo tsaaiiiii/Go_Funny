@@ -46,7 +46,7 @@ export function ExpenseCreatePage() {
 
   const [title, setTitle] = useState('')
   const [titleError, setTitleError] = useState<string | null>(null)
-  const [amount, setAmount] = useState('2400')
+  const [amount, setAmount] = useState('')
   const [note, setNote] = useState('')
   const [date, setDate] = useState(getTodayInputValue)
   const [payerMembershipId, setPayerMembershipId] = useState(trip?.memberships[0]?.id ?? '')
@@ -55,7 +55,7 @@ export function ExpenseCreatePage() {
   const [customAmounts, setCustomAmounts] = useState<Record<string, string>>({})
   const [recordTab, setRecordTab] = useState<'expense' | 'contribution'>(initialRecordTab)
   const [contributionMembershipId, setContributionMembershipId] = useState(trip?.memberships[0]?.id ?? '')
-  const [contributionAmount, setContributionAmount] = useState('3000')
+  const [contributionAmount, setContributionAmount] = useState('')
   const [contributionDate, setContributionDate] = useState(getTodayInputValue)
   const memberships = trip?.memberships ?? []
 
@@ -113,7 +113,10 @@ export function ExpenseCreatePage() {
 
   const allMemberIds = useMemo(() => memberships.map((m) => m.id), [memberships])
   const parsedAmount = Number(amount) || 0
-  const averageAmount = useMemo(() => Math.round(parsedAmount / Math.max(selectedMembers.length, 1)), [parsedAmount, selectedMembers.length])
+  const averageAmount = useMemo(
+    () => Math.floor(parsedAmount / Math.max(selectedMembers.length, 1)),
+    [parsedAmount, selectedMembers.length],
+  )
   const splitType =
     splitMode === 'custom'
       ? 'custom'
@@ -122,6 +125,10 @@ export function ExpenseCreatePage() {
         : 'equal_selected'
   const customTotal = selectedMembers.reduce((sum, id) => sum + (Number(customAmounts[id]) || 0), 0)
   const customSplitValid = splitMode !== 'custom' || (selectedMembers.length > 0 && customTotal === parsedAmount)
+  const equalUnallocated =
+    splitMode === 'custom' || selectedMembers.length === 0
+      ? 0
+      : Math.max(parsedAmount - averageAmount * selectedMembers.length, 0)
   const parsedContributionAmount = Number(contributionAmount)
   const isContributionTab = !isEditingExpense && trip?.mode === 'pool' && recordTab === 'contribution'
   const currentTotalContribution = trip?.contributions.reduce((sum, item) => sum + item.amount, 0) ?? 0
@@ -150,6 +157,16 @@ export function ExpenseCreatePage() {
 
     setSubmitFlowPending(true)
 
+    const splitsPayload =
+      splitType === 'equal_all'
+        ? undefined
+        : splitType === 'equal_selected'
+          ? selectedMembers.map((membershipId) => ({ membershipId, amount: 0 }))
+          : selectedMembers.map((membershipId) => ({
+              membershipId,
+              amount: Number(customAmounts[membershipId]) || 0,
+            }))
+
     try {
       if (isEditingExpense && editingExpense) {
         const result = await updateExpenseMutation.mutateAsync({
@@ -162,6 +179,7 @@ export function ExpenseCreatePage() {
             splitType: splitType as 'equal_all' | 'equal_selected' | 'custom',
             payerMembershipId: trip.mode === 'expense' ? payerMembershipId || null : null,
             note: note.trim() || null,
+            splits: splitsPayload,
           },
         })
 
@@ -186,6 +204,7 @@ export function ExpenseCreatePage() {
           splitType: splitType as 'equal_all' | 'equal_selected' | 'custom',
           payerMembershipId: trip.mode === 'expense' ? payerMembershipId : undefined,
           note: note.trim() || undefined,
+          splits: splitsPayload,
         },
       })
 
@@ -353,7 +372,17 @@ export function ExpenseCreatePage() {
             <label className="text-sm font-medium text-foreground">金額</label>
             <div className="flex h-12 items-center gap-3 rounded-2xl border border-border bg-white px-4 focus-within:border-primary">
               <CircleDollarSign className="h-5 w-5 text-primary" />
-              <input className="w-full bg-transparent outline-none placeholder:text-muted-foreground" value={amount} onChange={(event) => setAmount(event.target.value)} />
+              <input
+                className="w-full bg-transparent outline-none placeholder:text-muted-foreground"
+                inputMode="numeric"
+                placeholder="2400"
+                value={amount}
+                onChange={(event) => {
+                  const nextValue = event.target.value
+                  if (!/^\d*$/.test(nextValue)) return
+                  setAmount(nextValue)
+                }}
+              />
             </div>
           </div>
 
@@ -457,10 +486,21 @@ export function ExpenseCreatePage() {
                         return next
                       }
 
-                      setCustomAmounts((draft) => ({
-                        ...draft,
-                        [member.id]: draft[member.id] ?? `${averageAmount}`,
-                      }))
+                      setCustomAmounts((draft) => {
+                        if (member.id in draft) return draft
+                        let nextValue: string
+                        if (splitMode === 'custom') {
+                          const currentSum = current.reduce(
+                            (sum, id) => sum + (Number(draft[id]) || 0),
+                            0,
+                          )
+                          nextValue = String(Math.max(0, parsedAmount - currentSum))
+                        } else {
+                          const nextCount = current.length + 1
+                          nextValue = String(Math.floor(parsedAmount / Math.max(nextCount, 1)))
+                        }
+                        return { ...draft, [member.id]: nextValue }
+                      })
                       const next = [...current, member.id]
                       if (splitMode !== 'custom') setSplitMode(next.length === trip.memberships.length ? 'equal' : null)
                       return next
@@ -525,6 +565,11 @@ export function ExpenseCreatePage() {
                   <span className="text-muted-foreground">每人預估負擔</span>
                   <span className="font-semibold text-foreground">{formatCurrency(averageAmount)}</span>
                 </div>
+                {equalUnallocated > 0 ? (
+                  <div className="mt-3 rounded-2xl bg-[#FFF6EF] px-3 py-2 text-xs leading-5 text-[#9A5A2E]">
+                    未分配金額為 {formatCurrency(equalUnallocated)}，於結算時會統一加總提醒。
+                  </div>
+                ) : null}
                 <p className="mt-2 text-xs leading-5 text-muted-foreground">
                   先用「全部人平分」快速全選，再從下方成員調整參與名單。
                 </p>
@@ -603,7 +648,17 @@ export function ExpenseCreatePage() {
                   <label className="text-sm font-medium text-foreground">金額</label>
                   <div className="flex h-12 items-center gap-3 rounded-2xl border border-border bg-white px-4 focus-within:border-secondary">
                     <PiggyBank className="h-5 w-5 text-secondary" />
-                    <input className="w-full bg-transparent outline-none placeholder:text-muted-foreground" value={contributionAmount} onChange={(event) => setContributionAmount(event.target.value)} />
+                    <input
+                      className="w-full bg-transparent outline-none placeholder:text-muted-foreground"
+                      inputMode="numeric"
+                      placeholder="3000"
+                      value={contributionAmount}
+                      onChange={(event) => {
+                        const nextValue = event.target.value
+                        if (!/^\d*$/.test(nextValue)) return
+                        setContributionAmount(nextValue)
+                      }}
+                    />
                   </div>
                 </div>
 

@@ -7,6 +7,12 @@
  */
 import type { SplitType } from './splitType';
 
+export interface CreateExpenseRequestSplit {
+  /** @minLength 1 */
+  membershipId: string;
+  amount: number;
+}
+
 export interface CreateExpenseRequest {
   /** @minLength 1 */
   title: string;
@@ -17,4 +23,5 @@ export interface CreateExpenseRequest {
   payerMembershipId?: string;
   /** @minLength 1 */
   note?: string;
+  splits?: CreateExpenseRequestSplit[];
 }

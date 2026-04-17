@@ -13,4 +13,5 @@ export interface Settlement {
   tripId: string;
   mode: TripMode;
   transfers: SettlementTransfer[];
+  unallocated: number;
 }

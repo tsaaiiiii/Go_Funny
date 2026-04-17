@@ -71,6 +71,20 @@ export function SettlementPage() {
         </CardContent>
       </Card>
 
+      {settlement.unallocated > 0 ? (
+        <Card className="border-none bg-[#FFF6EF] shadow-soft">
+          <CardContent className="space-y-2 pt-5">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-sm font-semibold text-[#9A5A2E]">未分配金額</p>
+                <p className="text-xs leading-5 text-[#9A5A2E]/80">這筆金額不會自動進入任何人的債務，請自行決定怎麼處理。</p>
+              </div>
+              <span className="shrink-0 text-xl font-semibold text-[#9A5A2E]">{formatCurrency(settlement.unallocated)}</span>
+            </div>
+          </CardContent>
+        </Card>
+      ) : null}
+
       <Card>
         <CardHeader>
         <CardTitle>誰欠誰</CardTitle>

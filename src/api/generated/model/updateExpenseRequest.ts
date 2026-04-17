@@ -6,6 +6,7 @@
  * OpenAPI spec version: 1.0.0
  */
 import type { SplitType } from './splitType';
+import type { CreateExpenseRequestSplit } from './createExpenseRequest';
 
 export interface UpdateExpenseRequest {
   /** @minLength 1 */
@@ -23,4 +24,5 @@ export interface UpdateExpenseRequest {
      * @nullable
      */
   note?: string | null;
+  splits?: CreateExpenseRequestSplit[];
 }
