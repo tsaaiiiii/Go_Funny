@@ -25,6 +25,7 @@ import type {
 } from '@tanstack/react-query';
 
 import type {
+  BadRequestErrorResponse,
   ErrorResponse,
   Invitation,
   InvitationWithTrip,
@@ -47,7 +48,7 @@ export type createTripInvitationResponse201 = {
 }
 
 export type createTripInvitationResponse400 = {
-  data: ErrorResponse
+  data: BadRequestErrorResponse
   status: 400
 }
 
@@ -92,7 +93,7 @@ export const createTripInvitation = async (tripId: string, options?: RequestInit
 
 
 
-export const getCreateTripInvitationMutationOptions = <TError = ErrorType<ErrorResponse | UnauthorizedErrorResponse>,
+export const getCreateTripInvitationMutationOptions = <TError = ErrorType<BadRequestErrorResponse | UnauthorizedErrorResponse | ErrorResponse>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createTripInvitation>>, TError,{tripId: string}, TContext>, }
 ): UseMutationOptions<Awaited<ReturnType<typeof createTripInvitation>>, TError,{tripId: string}, TContext> => {
 
@@ -121,12 +122,12 @@ const {mutation: mutationOptions} = options ?
 
     export type CreateTripInvitationMutationResult = NonNullable<Awaited<ReturnType<typeof createTripInvitation>>>
 
-    export type CreateTripInvitationMutationError = ErrorType<ErrorResponse | UnauthorizedErrorResponse>
+    export type CreateTripInvitationMutationError = ErrorType<BadRequestErrorResponse | UnauthorizedErrorResponse | ErrorResponse>
 
     /**
  * @summary 建立邀請連結
  */
-export const useCreateTripInvitation = <TError = ErrorType<ErrorResponse | UnauthorizedErrorResponse>,
+export const useCreateTripInvitation = <TError = ErrorType<BadRequestErrorResponse | UnauthorizedErrorResponse | ErrorResponse>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createTripInvitation>>, TError,{tripId: string}, TContext>, }
  , queryClient?: QueryClient): UseMutationResult<
         Awaited<ReturnType<typeof createTripInvitation>>,
@@ -262,7 +263,7 @@ export type acceptTripInvitationResponse201 = {
 }
 
 export type acceptTripInvitationResponse400 = {
-  data: ErrorResponse
+  data: BadRequestErrorResponse
   status: 400
 }
 
@@ -307,7 +308,7 @@ export const acceptTripInvitation = async (token: string, options?: RequestInit)
 
 
 
-export const getAcceptTripInvitationMutationOptions = <TError = ErrorType<ErrorResponse | UnauthorizedErrorResponse>,
+export const getAcceptTripInvitationMutationOptions = <TError = ErrorType<BadRequestErrorResponse | UnauthorizedErrorResponse | ErrorResponse>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof acceptTripInvitation>>, TError,{token: string}, TContext>, }
 ): UseMutationOptions<Awaited<ReturnType<typeof acceptTripInvitation>>, TError,{token: string}, TContext> => {
 
@@ -336,12 +337,12 @@ const {mutation: mutationOptions} = options ?
 
     export type AcceptTripInvitationMutationResult = NonNullable<Awaited<ReturnType<typeof acceptTripInvitation>>>
 
-    export type AcceptTripInvitationMutationError = ErrorType<ErrorResponse | UnauthorizedErrorResponse>
+    export type AcceptTripInvitationMutationError = ErrorType<BadRequestErrorResponse | UnauthorizedErrorResponse | ErrorResponse>
 
     /**
  * @summary 接受邀請
  */
-export const useAcceptTripInvitation = <TError = ErrorType<ErrorResponse | UnauthorizedErrorResponse>,
+export const useAcceptTripInvitation = <TError = ErrorType<BadRequestErrorResponse | UnauthorizedErrorResponse | ErrorResponse>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof acceptTripInvitation>>, TError,{token: string}, TContext>, }
  , queryClient?: QueryClient): UseMutationResult<
         Awaited<ReturnType<typeof acceptTripInvitation>>,

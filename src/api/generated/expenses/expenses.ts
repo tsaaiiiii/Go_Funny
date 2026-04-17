@@ -25,10 +25,12 @@ import type {
 } from '@tanstack/react-query';
 
 import type {
+  BadRequestErrorResponse,
   CreateExpenseRequest,
   ErrorResponse,
   Expense,
-  UnauthorizedErrorResponse
+  UnauthorizedErrorResponse,
+  UpdateExpenseRequest
 } from '../model';
 
 import { customFetch } from '../../custom-fetch';
@@ -46,7 +48,7 @@ export type createTripExpenseResponse201 = {
 }
 
 export type createTripExpenseResponse400 = {
-  data: ErrorResponse
+  data: BadRequestErrorResponse
   status: 400
 }
 
@@ -93,7 +95,7 @@ export const createTripExpense = async (tripId: string,
 
 
 
-export const getCreateTripExpenseMutationOptions = <TError = ErrorType<ErrorResponse | UnauthorizedErrorResponse>,
+export const getCreateTripExpenseMutationOptions = <TError = ErrorType<BadRequestErrorResponse | UnauthorizedErrorResponse | ErrorResponse>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createTripExpense>>, TError,{tripId: string;data: BodyType<CreateExpenseRequest>}, TContext>, }
 ): UseMutationOptions<Awaited<ReturnType<typeof createTripExpense>>, TError,{tripId: string;data: BodyType<CreateExpenseRequest>}, TContext> => {
 
@@ -122,12 +124,12 @@ const {mutation: mutationOptions} = options ?
 
     export type CreateTripExpenseMutationResult = NonNullable<Awaited<ReturnType<typeof createTripExpense>>>
     export type CreateTripExpenseMutationBody = BodyType<CreateExpenseRequest>
-    export type CreateTripExpenseMutationError = ErrorType<ErrorResponse | UnauthorizedErrorResponse>
+    export type CreateTripExpenseMutationError = ErrorType<BadRequestErrorResponse | UnauthorizedErrorResponse | ErrorResponse>
 
     /**
  * @summary 新增費用
  */
-export const useCreateTripExpense = <TError = ErrorType<ErrorResponse | UnauthorizedErrorResponse>,
+export const useCreateTripExpense = <TError = ErrorType<BadRequestErrorResponse | UnauthorizedErrorResponse | ErrorResponse>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createTripExpense>>, TError,{tripId: string;data: BodyType<CreateExpenseRequest>}, TContext>, }
  , queryClient?: QueryClient): UseMutationResult<
         Awaited<ReturnType<typeof createTripExpense>>,
@@ -260,6 +262,108 @@ export function useGetTripExpenses<TData = Awaited<ReturnType<typeof getTripExpe
 
 
 /**
+ * @summary 編輯費用
+ */
+export type updateTripExpenseResponse200 = {
+  data: Expense
+  status: 200
+}
+
+export type updateTripExpenseResponse400 = {
+  data: BadRequestErrorResponse
+  status: 400
+}
+
+export type updateTripExpenseResponse401 = {
+  data: UnauthorizedErrorResponse
+  status: 401
+}
+
+export type updateTripExpenseResponse404 = {
+  data: ErrorResponse
+  status: 404
+}
+
+export type updateTripExpenseResponseSuccess = (updateTripExpenseResponse200) & {
+  headers: Headers;
+};
+export type updateTripExpenseResponseError = (updateTripExpenseResponse400 | updateTripExpenseResponse401 | updateTripExpenseResponse404) & {
+  headers: Headers;
+};
+
+export type updateTripExpenseResponse = (updateTripExpenseResponseSuccess | updateTripExpenseResponseError)
+
+export const getUpdateTripExpenseUrl = (tripId: string,
+    expenseId: string,) => {
+
+
+
+
+  return `/expenses/${tripId}/${expenseId}`
+}
+
+export const updateTripExpense = async (tripId: string,
+    expenseId: string,
+    updateExpenseRequest: UpdateExpenseRequest, options?: RequestInit): Promise<updateTripExpenseResponse> => {
+
+  return customFetch<updateTripExpenseResponse>(getUpdateTripExpenseUrl(tripId,expenseId),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      updateExpenseRequest,)
+  }
+);}
+
+
+
+
+export const getUpdateTripExpenseMutationOptions = <TError = ErrorType<BadRequestErrorResponse | UnauthorizedErrorResponse | ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateTripExpense>>, TError,{tripId: string;expenseId: string;data: BodyType<UpdateExpenseRequest>}, TContext>, }
+): UseMutationOptions<Awaited<ReturnType<typeof updateTripExpense>>, TError,{tripId: string;expenseId: string;data: BodyType<UpdateExpenseRequest>}, TContext> => {
+
+const mutationKey = ['updateTripExpense'];
+const {mutation: mutationOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateTripExpense>>, {tripId: string;expenseId: string;data: BodyType<UpdateExpenseRequest>}> = (props) => {
+          const {tripId,expenseId,data} = props ?? {};
+
+          return  updateTripExpense(tripId,expenseId,data,)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateTripExpenseMutationResult = NonNullable<Awaited<ReturnType<typeof updateTripExpense>>>
+    export type UpdateTripExpenseMutationBody = BodyType<UpdateExpenseRequest>
+    export type UpdateTripExpenseMutationError = ErrorType<BadRequestErrorResponse | UnauthorizedErrorResponse | ErrorResponse>
+
+    /**
+ * @summary 編輯費用
+ */
+export const useUpdateTripExpense = <TError = ErrorType<BadRequestErrorResponse | UnauthorizedErrorResponse | ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateTripExpense>>, TError,{tripId: string;expenseId: string;data: BodyType<UpdateExpenseRequest>}, TContext>, }
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof updateTripExpense>>,
+        TError,
+        {tripId: string;expenseId: string;data: BodyType<UpdateExpenseRequest>},
+        TContext
+      > => {
+      return useMutation(getUpdateTripExpenseMutationOptions(options), queryClient);
+    }
+    /**
  * @summary 刪除費用
  */
 export type deleteTripExpenseResponse204 = {
@@ -268,7 +372,7 @@ export type deleteTripExpenseResponse204 = {
 }
 
 export type deleteTripExpenseResponse400 = {
-  data: ErrorResponse
+  data: BadRequestErrorResponse
   status: 400
 }
 
@@ -315,7 +419,7 @@ export const deleteTripExpense = async (tripId: string,
 
 
 
-export const getDeleteTripExpenseMutationOptions = <TError = ErrorType<ErrorResponse | UnauthorizedErrorResponse>,
+export const getDeleteTripExpenseMutationOptions = <TError = ErrorType<BadRequestErrorResponse | UnauthorizedErrorResponse | ErrorResponse>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteTripExpense>>, TError,{tripId: string;expenseId: string}, TContext>, }
 ): UseMutationOptions<Awaited<ReturnType<typeof deleteTripExpense>>, TError,{tripId: string;expenseId: string}, TContext> => {
 
@@ -344,12 +448,12 @@ const {mutation: mutationOptions} = options ?
 
     export type DeleteTripExpenseMutationResult = NonNullable<Awaited<ReturnType<typeof deleteTripExpense>>>
 
-    export type DeleteTripExpenseMutationError = ErrorType<ErrorResponse | UnauthorizedErrorResponse>
+    export type DeleteTripExpenseMutationError = ErrorType<BadRequestErrorResponse | UnauthorizedErrorResponse | ErrorResponse>
 
     /**
  * @summary 刪除費用
  */
-export const useDeleteTripExpense = <TError = ErrorType<ErrorResponse | UnauthorizedErrorResponse>,
+export const useDeleteTripExpense = <TError = ErrorType<BadRequestErrorResponse | UnauthorizedErrorResponse | ErrorResponse>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteTripExpense>>, TError,{tripId: string;expenseId: string}, TContext>, }
  , queryClient?: QueryClient): UseMutationResult<
         Awaited<ReturnType<typeof deleteTripExpense>>,

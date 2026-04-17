@@ -24,7 +24,7 @@ export function BottomNav() {
   const fallbackCreateRoute = currentTripId ? `/trip/${currentTripId}/new-expense` : '/new-record'
   const fallbackSettlementRoute = currentTripId ? `/trip/${currentTripId}/settlement` : '/settlement'
   const onTripDetailPage = location.pathname === '/details' || (currentTripId ? location.pathname === `/trip/${currentTripId}` : false)
-  const onCreatePage = location.pathname === '/new-record' || /^\/trip\/[^/]+\/new-(expense|contribution)$/.test(location.pathname)
+  const onCreatePage = location.pathname === '/new-record' || /^\/trip\/[^/]+\/new-expense$/.test(location.pathname)
   const onSettlementPage = location.pathname === '/settlement' || (currentTripId ? location.pathname === `/trip/${currentTripId}/settlement` : false)
   const items = [
     { to: '/', label: '旅程', icon: Home, active: location.pathname === '/', disabled: false },

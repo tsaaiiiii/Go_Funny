@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 
 import { Calendar } from '@/components/ui/calendar'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { getTodayInputValue } from '@/lib/date'
 import { cn } from '@/lib/utils'
 
 interface DatePickerFieldProps {
@@ -32,13 +33,19 @@ const accentStyles = {
   },
 } as const
 
-const formatDateLabel = (value: string) => {
+const getValidDate = (value: string) => {
+  const date = parseISO(value)
+
+  return Number.isNaN(date.getTime()) ? parseISO(getTodayInputValue()) : date
+}
+
+const formatDateLabel = (value: Date) => {
   return new Intl.DateTimeFormat('zh-TW', {
     year: 'numeric',
     month: 'long',
     day: 'numeric',
     weekday: 'short',
-  }).format(new Date(`${value}T00:00:00`))
+  }).format(value)
 }
 
 export function DatePickerField({
@@ -48,8 +55,8 @@ export function DatePickerField({
   helperText = '選擇日期',
 }: DatePickerFieldProps) {
   const [open, setOpen] = useState(false)
-  const [month, setMonth] = useState(() => parseISO(value))
-  const selectedDate = useMemo(() => parseISO(value), [value])
+  const [month, setMonth] = useState(() => getValidDate(value))
+  const selectedDate = useMemo(() => getValidDate(value), [value])
   const styles = accentStyles[accent]
 
   useEffect(() => {
@@ -72,7 +79,7 @@ export function DatePickerField({
             <div className="flex items-center justify-between gap-3">
               <div className="min-w-0">
                 <p className="text-[11px] uppercase tracking-[0.24em] text-[#6A919B]">Date</p>
-                <p className="mt-1 truncate text-[15px] font-semibold text-foreground">{formatDateLabel(value)}</p>
+                <p className="mt-1 truncate text-[15px] font-semibold text-foreground">{formatDateLabel(selectedDate)}</p>
               </div>
               <div className={cn('flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white shadow-soft', styles.icon)}>
                 <CalendarRange className="h-4 w-4" />

@@ -25,6 +25,7 @@ import type {
 } from '@tanstack/react-query';
 
 import type {
+  BadRequestErrorResponse,
   Contribution,
   CreateContributionRequest,
   ErrorResponse,
@@ -46,7 +47,7 @@ export type createTripContributionResponse201 = {
 }
 
 export type createTripContributionResponse400 = {
-  data: ErrorResponse
+  data: BadRequestErrorResponse
   status: 400
 }
 
@@ -93,7 +94,7 @@ export const createTripContribution = async (tripId: string,
 
 
 
-export const getCreateTripContributionMutationOptions = <TError = ErrorType<ErrorResponse | UnauthorizedErrorResponse>,
+export const getCreateTripContributionMutationOptions = <TError = ErrorType<BadRequestErrorResponse | UnauthorizedErrorResponse | ErrorResponse>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createTripContribution>>, TError,{tripId: string;data: BodyType<CreateContributionRequest>}, TContext>, }
 ): UseMutationOptions<Awaited<ReturnType<typeof createTripContribution>>, TError,{tripId: string;data: BodyType<CreateContributionRequest>}, TContext> => {
 
@@ -122,12 +123,12 @@ const {mutation: mutationOptions} = options ?
 
     export type CreateTripContributionMutationResult = NonNullable<Awaited<ReturnType<typeof createTripContribution>>>
     export type CreateTripContributionMutationBody = BodyType<CreateContributionRequest>
-    export type CreateTripContributionMutationError = ErrorType<ErrorResponse | UnauthorizedErrorResponse>
+    export type CreateTripContributionMutationError = ErrorType<BadRequestErrorResponse | UnauthorizedErrorResponse | ErrorResponse>
 
     /**
  * @summary 新增公費
  */
-export const useCreateTripContribution = <TError = ErrorType<ErrorResponse | UnauthorizedErrorResponse>,
+export const useCreateTripContribution = <TError = ErrorType<BadRequestErrorResponse | UnauthorizedErrorResponse | ErrorResponse>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createTripContribution>>, TError,{tripId: string;data: BodyType<CreateContributionRequest>}, TContext>, }
  , queryClient?: QueryClient): UseMutationResult<
         Awaited<ReturnType<typeof createTripContribution>>,

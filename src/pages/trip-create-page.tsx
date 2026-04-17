@@ -1,6 +1,6 @@
-import { ArrowRight, CalendarRange, Compass, LoaderCircle, Sparkles, Trash2 } from 'lucide-react'
+import { ArrowRight, CalendarRange, Compass, Copy, LoaderCircle, Sparkles, Trash2, X } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import type { DateRange } from 'react-day-picker'
 import { useQueryClient } from '@tanstack/react-query'
@@ -15,10 +15,11 @@ import { PageBlockingLoading } from '@/components/ui/page-blocking-loading'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { SectionHeading } from '@/components/ui/section-heading'
 import { queueFlashToast, useToast } from '@/components/ui/toast'
-import { useGetTripById, useCreateTrip, useUpdateTrip, useDeleteTrip } from '@/api/generated/trips/trips'
+import { getTrips, useGetTripById, useCreateTrip, useUpdateTrip, useDeleteTrip } from '@/api/generated/trips/trips'
+import { useCreateTripInvitation } from '@/api/generated/invitations/invitations'
 import { hasStatus } from '@/lib/api-response'
 import { authClient } from '@/lib/auth-client'
-import { getTodayInputValue } from '@/lib/date'
+import { getTodayInputValue, toDateInputValue } from '@/lib/date'
 import { readMockSession } from '@/lib/mock-session'
 import type { TripMode } from '@/api/generated/model'
 
@@ -63,21 +64,30 @@ export function TripCreatePage() {
   const { data: session } = authClient.useSession()
   const mockSession = readMockSession()
   const currentUser = session?.user ?? mockSession?.user ?? null
+  const tripsRefreshPromiseRef = useRef<Promise<unknown> | null>(null)
   const { data: tripResponse, isPending } = useGetTripById(tripId!, { query: { enabled: !!tripId } })
   const editingTrip = hasStatus(tripResponse, 200) ? tripResponse.data : null
   const isEditingRoute = Boolean(tripId)
   const isEditing = Boolean(tripId && editingTrip)
   const canDeleteTrip = Boolean(editingTrip && currentUser?.id && editingTrip.createdByUserId === currentUser.id)
   const createTripMutation = useCreateTrip()
+  const createInvitationMutation = useCreateTripInvitation()
   const updateTripMutation = useUpdateTrip()
   const deleteTripMutation = useDeleteTrip()
-  const submitPending = createTripMutation.isPending || updateTripMutation.isPending
-  const mutationPending = submitPending || deleteTripMutation.isPending
+  const [createFlowPending, setCreateFlowPending] = useState(false)
+  const [updateFlowPending, setUpdateFlowPending] = useState(false)
+  const [deleteFlowPending, setDeleteFlowPending] = useState(false)
+  const submitPending = createFlowPending || updateFlowPending || updateTripMutation.isPending
+  const mutationPending = submitPending || deleteTripMutation.isPending || deleteFlowPending
 
+  const [createdInviteLink, setCreatedInviteLink] = useState<string | null>(null)
+  const [createdTripTitle, setCreatedTripTitle] = useState('')
+  const [inviteCopied, setInviteCopied] = useState(false)
+  const [inviteDialogClosing, setInviteDialogClosing] = useState(false)
   const [title, setTitle] = useState(editingTrip?.title ?? '')
   const [location, setLocation] = useState(editingTrip?.location ?? '')
-  const [startDate, setStartDate] = useState(editingTrip?.startDate ? new Date(editingTrip.startDate).toISOString().slice(0, 10) : getTodayInputValue())
-  const [endDate, setEndDate] = useState(editingTrip?.endDate ? new Date(editingTrip.endDate).toISOString().slice(0, 10) : getTodayInputValue())
+  const [startDate, setStartDate] = useState(editingTrip?.startDate ? toDateInputValue(editingTrip.startDate) : getTodayInputValue())
+  const [endDate, setEndDate] = useState(editingTrip?.endDate ? toDateInputValue(editingTrip.endDate) : getTodayInputValue())
   const [mode, setMode] = useState<TripMode>(editingTrip?.mode ?? 'expense')
   const [dateRangeOpen, setDateRangeOpen] = useState(false)
   const [calendarMonth, setCalendarMonth] = useState(() => parseISO(getTodayInputValue()))
@@ -88,8 +98,8 @@ export function TripCreatePage() {
     if (!editingTrip) return
     setTitle(editingTrip.title)
     setLocation(editingTrip.location ?? '')
-    setStartDate(new Date(editingTrip.startDate).toISOString().slice(0, 10))
-    setEndDate(new Date(editingTrip.endDate).toISOString().slice(0, 10))
+    setStartDate(toDateInputValue(editingTrip.startDate))
+    setEndDate(toDateInputValue(editingTrip.endDate))
     setMode(editingTrip.mode)
   }, [editingTrip])
 
@@ -163,7 +173,9 @@ export function TripCreatePage() {
           return
         }
 
-        await updateTripMutation.mutateAsync({
+        setUpdateFlowPending(true)
+
+        const result = await updateTripMutation.mutateAsync({
           tripId: editingTrip.id,
           data: {
             title: title.trim(),
@@ -173,13 +185,26 @@ export function TripCreatePage() {
             mode,
           },
         })
+
+        if (result.status !== 200) {
+          showError('儲存失敗', result.data.message || '請稍後再試。')
+          setUpdateFlowPending(false)
+          return
+        }
+
         await queryClient.invalidateQueries({ queryKey: ['/trips'] })
         showSuccess('旅程已更新')
+        setUpdateFlowPending(false)
       } catch {
         showError('儲存失敗', '請稍後再試。')
+        setUpdateFlowPending(false)
       }
       return
     }
+
+    let tripCreated = false
+
+    setCreateFlowPending(true)
 
     try {
       const result = await createTripMutation.mutateAsync({
@@ -194,44 +219,161 @@ export function TripCreatePage() {
       if (result.status !== 201) {
         throw new Error('Create trip failed')
       }
-      await queryClient.invalidateQueries({ queryKey: ['/trips'] })
-      queueFlashToast({ tone: 'success', title: '旅程已建立', description: '接著就能邀請旅伴加入。' })
-      navigate(`/trip/${result.data.id}/members?from=create`)
+      tripCreated = true
+      tripsRefreshPromiseRef.current = refreshTripsList()
+      void tripsRefreshPromiseRef.current.catch(() => undefined)
+
+      const invitationResult = await createInvitationMutation.mutateAsync({ tripId: result.data.id })
+
+      if (invitationResult.status !== 201) {
+        throw new Error('Create invitation failed')
+      }
+
+      setCreatedTripTitle(result.data.title)
+      setCreatedInviteLink(`${window.location.origin}/invitations/${invitationResult.data.token}`)
+      setInviteCopied(false)
     } catch {
-      showError('建立旅程失敗', '請稍後再試。')
+      showError(
+        tripCreated ? '邀請連結建立失敗' : '建立旅程失敗',
+        tripCreated ? '旅程已建立，請稍後從成員管理重新產生邀請連結。' : '請稍後再試。',
+      )
+    } finally {
+      setCreateFlowPending(false)
+    }
+  }
+
+  async function handleCopyInviteLink() {
+    if (!createdInviteLink) return
+
+    try {
+      await navigator.clipboard.writeText(createdInviteLink)
+      setInviteCopied(true)
+      showSuccess('已複製邀請連結')
+    } catch {
+      showError('複製失敗', '請檢查瀏覽器是否允許剪貼簿權限。')
+    }
+  }
+
+  async function handleCloseInviteDialog() {
+    setInviteDialogClosing(true)
+
+    try {
+      await tripsRefreshPromiseRef.current
+      queueFlashToast({ tone: 'success', title: '旅程已建立' })
+      navigate('/', { replace: true })
+    } catch {
+      showError('首頁資料更新失敗', '旅程已建立，但目前無法重新載入首頁列表，請稍後再試。')
+      setInviteDialogClosing(false)
     }
   }
 
   async function handleDelete() {
     if (!editingTrip) return
 
+    setDeleteFlowPending(true)
+    let deleteSucceeded = false
+
     try {
       const result = await deleteTripMutation.mutateAsync({ tripId: editingTrip.id })
 
       if (result.status !== 204) {
         showError('刪除旅程失敗', result.data.message || '請稍後再試。')
+        setDeleteFlowPending(false)
         return
       }
 
-      await queryClient.invalidateQueries({ queryKey: ['/trips'] })
+      deleteSucceeded = true
+      await refreshTripsList()
       queueFlashToast({ tone: 'success', title: '旅程已刪除' })
-      navigate('/')
+      navigate('/', { replace: true })
     } catch {
-      showError('刪除旅程失敗', '請稍後再試。')
+      showError(
+        deleteSucceeded ? '首頁資料更新失敗' : '刪除旅程失敗',
+        deleteSucceeded ? '旅程已刪除，但目前無法重新載入首頁列表，請稍後再試。' : '請稍後再試。',
+      )
+      setDeleteFlowPending(false)
     }
+  }
+
+  async function refreshTripsList() {
+    await queryClient.invalidateQueries({ queryKey: ['/trips'], refetchType: 'none' })
+
+    return queryClient.fetchQuery({
+      queryKey: ['/trips'],
+      queryFn: ({ signal }) => getTrips({ signal }),
+      staleTime: 0,
+    })
   }
 
   return (
     <div className="space-y-5 pb-4">
       {mutationPending ? (
         <PageBlockingLoading
-          title={deleteTripMutation.isPending ? '刪除旅程中' : '儲存旅程中'}
+          title={
+            deleteTripMutation.isPending || deleteFlowPending
+              ? '刪除旅程中'
+              : createFlowPending
+                ? '建立旅程中'
+                : '儲存旅程中'
+          }
           description={
-            deleteTripMutation.isPending
+            deleteTripMutation.isPending || deleteFlowPending
               ? '正在刪除旅程並整理首頁資料。'
-              : '正在儲存旅程設定，請稍候。'
+              : createFlowPending
+                ? '正在建立旅程並產生邀請連結。'
+                : '正在儲存旅程設定，請稍候。'
           }
         />
+      ) : null}
+      {createdInviteLink ? (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="created-invite-title"
+          className="fixed inset-0 z-40 flex items-end justify-center bg-[#24464D]/35 px-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] pt-8 backdrop-blur-sm sm:items-center sm:pb-8"
+        >
+          <Card className="w-full max-w-md overflow-hidden border-white/80 bg-[linear-gradient(180deg,rgba(255,253,252,0.99),rgba(239,248,246,0.98))] shadow-float">
+            <CardContent className="space-y-5 pt-5">
+              <div className="flex items-start justify-between gap-4">
+                <div className="space-y-1">
+                  <p className="text-sm text-muted-foreground">邀請連結已建立</p>
+                  <h2 id="created-invite-title" className="text-2xl font-semibold leading-tight text-foreground">
+                    {createdTripTitle}
+                  </h2>
+                </div>
+                <button
+                  type="button"
+                  aria-label="關閉邀請視窗"
+                  onClick={handleCloseInviteDialog}
+                  disabled={inviteDialogClosing}
+                  className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-white/80 bg-white/80 text-foreground shadow-soft transition-colors hover:bg-white"
+                >
+                  {inviteDialogClosing ? (
+                    <LoaderCircle className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <X className="h-4 w-4" />
+                  )}
+                </button>
+              </div>
+
+              <div className="rounded-3xl border border-[#D6E6E9] bg-white/80 p-3">
+                <div className="rounded-2xl bg-[#F6FBFC] px-4 py-3 text-sm leading-6 text-muted-foreground break-all">
+                  {createdInviteLink}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_auto]">
+                <Button className="w-full gap-2" onClick={handleCopyInviteLink}>
+                  <Copy className="h-4 w-4" />
+                  {inviteCopied ? '已複製' : '複製邀請連結'}
+                </Button>
+                <Button variant="outline" className="w-full sm:w-auto" onClick={handleCloseInviteDialog} disabled={inviteDialogClosing}>
+                  {inviteDialogClosing ? '更新首頁中...' : '關閉'}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
       ) : null}
       <MobileHeader title={isEditing ? '編輯旅程' : '建立旅程'} backTo={isEditing && editingTrip ? `/trip/${editingTrip.id}/manage` : '/'} />
 
@@ -361,7 +503,7 @@ export function TripCreatePage() {
             disabled={mutationPending}
             className="inline-flex h-12 w-12 items-center justify-center rounded-full border border-[#EBCACA] bg-[#FFF5F5] text-[#C96B6B]"
           >
-            {deleteTripMutation.isPending ? (
+            {deleteTripMutation.isPending || deleteFlowPending ? (
               <LoaderCircle className="h-4 w-4 animate-spin" />
             ) : (
               <Trash2 className="h-4 w-4" />
@@ -381,7 +523,13 @@ export function TripCreatePage() {
           </Link>
         )}
         <Button size="lg" className="flex-1" onClick={handleSubmit} disabled={!title.trim() || mutationPending}>
-          {deleteTripMutation.isPending ? '刪除中...' : submitPending ? '儲存中...' : submitLabel}
+          {deleteTripMutation.isPending || deleteFlowPending
+            ? '刪除中...'
+            : createFlowPending
+              ? '建立中...'
+              : submitPending
+                ? '儲存中...'
+                : submitLabel}
         </Button>
       </div>
 

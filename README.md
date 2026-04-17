@@ -46,6 +46,7 @@ This command generates the frontend client from the backend-owned OpenAPI endpoi
 - Trip detail
 - Member management
 - Create expense
+- Expense edit
 - Create contribution
 - Settlement
 

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { ChevronUp, LoaderCircle, Plus, Trash2, Users, Wallet2 } from 'lucide-react'
+import { ChevronUp, LoaderCircle, Plus, SquarePen, Trash2, Users, Wallet2 } from 'lucide-react'
 import { Link, useParams } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 
@@ -15,6 +15,7 @@ import { useGetTripById } from '@/api/generated/trips/trips'
 import { useDeleteTripExpense } from '@/api/generated/expenses/expenses'
 import { hasStatus } from '@/lib/api-response'
 import { formatCurrency } from '@/lib/currency'
+import { getTodayInputValue, toDateInputValue } from '@/lib/date'
 import type { ExpenseWithSplits, TripMembershipWithUser } from '@/api/generated/model'
 
 const buildDateRange = (startDate: string, endDate: string) => {
@@ -39,13 +40,13 @@ const formatDayLabel = (dateString: string) => {
 }
 
 const isToday = (dateString: string) => {
-  return dateString === new Date().toISOString().slice(0, 10)
+  return dateString === getTodayInputValue()
 }
 
 const allDateKey = 'all'
 
 const findDefaultSelectedDate = (expenseDates: string[], tripStartDate: string) => {
-  const today = new Date().toISOString().slice(0, 10)
+  const today = getTodayInputValue()
 
   if (expenseDates.includes(today)) {
     return today
@@ -60,7 +61,16 @@ const findDefaultSelectedDate = (expenseDates: string[], tripStartDate: string) 
 }
 
 const buildExpenseSplitDetails = (expense: ExpenseWithSplits, members: TripMembershipWithUser[]) => {
-  if (!expense.splits || expense.splits.length === 0) return []
+  if (!expense.splits || expense.splits.length === 0) {
+    if (expense.splitType !== 'equal_all' || members.length === 0) return []
+
+    const averageAmount = expense.amount / members.length
+
+    return members.map((member) => ({
+      member,
+      amount: averageAmount,
+    }))
+  }
 
   return expense.splits
     .map((split) => ({
@@ -78,14 +88,15 @@ export function TripDetailPage() {
   const trip = hasStatus(tripResponse, 200) ? tripResponse.data : null
   const deleteExpenseMutation = useDeleteTripExpense()
   const [deletingExpenseId, setDeletingExpenseId] = useState<string | null>(null)
-  const fallbackDate = new Date().toISOString().slice(0, 10)
-  const startDateStr = trip ? new Date(trip.startDate).toISOString().slice(0, 10) : fallbackDate
-  const endDateStr = trip ? new Date(trip.endDate).toISOString().slice(0, 10) : fallbackDate
+  const [deleteExpenseFlowPending, setDeleteExpenseFlowPending] = useState(false)
+  const fallbackDate = getTodayInputValue()
+  const startDateStr = trip ? toDateInputValue(trip.startDate) : fallbackDate
+  const endDateStr = trip ? toDateInputValue(trip.endDate) : fallbackDate
   const totalExpense = trip?.expenses.reduce((sum, expense) => sum + expense.amount, 0) ?? 0
   const totalContribution = trip?.contributions.reduce((sum, contribution) => sum + contribution.amount, 0) ?? 0
   const tripDates = useMemo(() => buildDateRange(startDateStr, endDateStr), [startDateStr, endDateStr])
   const expenseDates = useMemo(
-    () => trip?.expenses.map((expense) => new Date(expense.date).toISOString().slice(0, 10)) ?? [],
+    () => trip?.expenses.map((expense) => toDateInputValue(expense.date)) ?? [],
     [trip?.expenses],
   )
   const [selectedDate, setSelectedDate] = useState<string>(findDefaultSelectedDate(expenseDates, startDateStr))
@@ -112,25 +123,33 @@ export function TripDetailPage() {
   const selectedDateExpenses =
       selectedDate === allDateKey
       ? trip.expenses
-      : trip.expenses.filter((expense) => new Date(expense.date).toISOString().slice(0, 10) === selectedDate)
+      : trip.expenses.filter((expense) => toDateInputValue(expense.date) === selectedDate)
   const selectedDateTotal = selectedDateExpenses.reduce((sum, expense) => sum + expense.amount, 0)
 
   async function handleDeleteExpense(expenseId: string) {
     setDeletingExpenseId(expenseId)
+    setDeleteExpenseFlowPending(true)
     try {
-      await deleteExpenseMutation.mutateAsync({ tripId: tripId!, expenseId })
+      const result = await deleteExpenseMutation.mutateAsync({ tripId: tripId!, expenseId })
+
+      if (result.status !== 204) {
+        showError('刪除支出失敗', result.data.message || '請稍後再試。')
+        return
+      }
+
       await queryClient.invalidateQueries({ queryKey: [`/trips/${tripId}`] })
       showSuccess('支出已刪除')
     } catch {
       showError('刪除支出失敗', '請稍後再試。')
     } finally {
       setDeletingExpenseId(null)
+      setDeleteExpenseFlowPending(false)
     }
   }
 
   return (
     <div className="space-y-5 pb-4">
-      {deleteExpenseMutation.isPending ? (
+      {deleteExpenseFlowPending || deleteExpenseMutation.isPending ? (
         <PageBlockingLoading title="刪除支出中" description="正在更新旅程明細，請稍候。" />
       ) : null}
       <MobileHeader title={trip.title} backTo="/" />
@@ -161,7 +180,7 @@ export function TripDetailPage() {
               className="inline-flex h-11 flex-1 items-center justify-center gap-2 rounded-full bg-primary px-4 py-2 font-medium text-primary-foreground shadow-soft transition-all hover:bg-[#4E99A9]"
             >
               <Plus className="h-4 w-4" />
-              新增支出
+              {trip.mode === 'pool' ? '新增支出或公積金' : '新增支出'}
             </Link>
             <Link
               to={`/trip/${trip.id}/settlement`}
@@ -238,7 +257,6 @@ export function TripDetailPage() {
         ) : selectedDateExpenses.map((expense) => {
           const payer = trip.memberships.find((member) => member.id === expense.payerMembershipId)
           const splitDetails = buildExpenseSplitDetails(expense, trip.memberships)
-          const participantNames = splitDetails.map((detail) => detail.member.user.name)
 
           return (
             <Card key={expense.id}>
@@ -253,7 +271,7 @@ export function TripDetailPage() {
                             ? '部分平分'
                             : '自訂金額'}
                       </Badge>
-                      <span className="text-xs text-muted-foreground">{new Date(expense.date).toISOString().slice(0, 10)}</span>
+                      <span className="text-xs text-muted-foreground">{toDateInputValue(expense.date)}</span>
                     </div>
                     <h3 className="text-base font-semibold">{expense.title}</h3>
                     <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
@@ -264,7 +282,7 @@ export function TripDetailPage() {
                       {payer ? (
                         <span className="inline-flex items-center gap-1">
                           <Wallet2 className="h-4 w-4" />
-                          {payer.user.name} 付款
+                          {payer.user.name} 付款 {formatCurrency(expense.amount)}
                         </span>
                         ) : null}
                     </div>
@@ -272,35 +290,38 @@ export function TripDetailPage() {
                   </div>
                   <div className="text-right">
                     <p className="text-lg font-semibold text-foreground">{formatCurrency(expense.amount)}</p>
-                    <button
-                      type="button"
-                      onClick={() => handleDeleteExpense(expense.id)}
-                      disabled={deleteExpenseMutation.isPending}
-                      className="mt-2 inline-flex h-7 items-center gap-1 rounded-full border border-[#F1C7C7] bg-[#FFF5F5] px-2.5 text-[11px] font-medium text-danger transition-colors hover:bg-[#FEEBEB]"
-                    >
-                      {deletingExpenseId === expense.id ? (
-                        <>
-                          <LoaderCircle className="h-3 w-3 animate-spin" />
-                          刪除中...
-                        </>
-                      ) : (
-                        <>
-                          <Trash2 className="h-3 w-3" />
-                          刪除
-                        </>
-                      )}
-                    </button>
+                    <div className="mt-2 flex justify-end gap-2">
+                      <Link
+                        to={`/trip/${trip.id}/expenses/${expense.id}/edit`}
+                        className="inline-flex h-7 items-center gap-1 rounded-full border border-[#CFE2E8] bg-[#F6FBFC] px-2.5 text-[11px] font-medium text-primary transition-colors hover:bg-[#EAF4F7]"
+                      >
+                        <SquarePen className="h-3 w-3" />
+                        編輯
+                      </Link>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteExpense(expense.id)}
+                        disabled={deleteExpenseMutation.isPending}
+                        className="inline-flex h-7 items-center gap-1 rounded-full border border-[#F1C7C7] bg-[#FFF5F5] px-2.5 text-[11px] font-medium text-danger transition-colors hover:bg-[#FEEBEB]"
+                      >
+                        {deletingExpenseId === expense.id ? (
+                          <>
+                            <LoaderCircle className="h-3 w-3 animate-spin" />
+                            刪除中...
+                          </>
+                        ) : (
+                          <>
+                            <Trash2 className="h-3 w-3" />
+                            刪除
+                          </>
+                        )}
+                      </button>
+                    </div>
                   </div>
                 </div>
                 <details className="mt-3 w-full rounded-2xl bg-[#F8FBFC] p-3">
                   <summary className="cursor-pointer text-xs font-medium text-primary">查看細節</summary>
                   <div className="mt-2 space-y-2 text-xs text-muted-foreground">
-                    <p>
-                      {payer
-                        ? `${payer.user.name} 付款 ${formatCurrency(expense.amount)}`
-                        : `共同錢池支付 ${formatCurrency(expense.amount)}`}
-                    </p>
-                    <p>參與成員：{participantNames.length > 0 ? participantNames.join('、') : '全部成員'}</p>
                     <div className="space-y-1">
                       <p className="font-medium text-foreground">分攤明細</p>
                       {splitDetails.map((detail) => (
@@ -323,7 +344,7 @@ export function TripDetailPage() {
           <div className="flex items-center justify-between gap-3">
             <SectionHeading title="公積金存入" />
             <Link
-              to={`/trip/${trip.id}/new-contribution`}
+              to={`/trip/${trip.id}/new-expense?tab=contribution`}
               className="inline-flex h-8 items-center justify-center rounded-full border border-[#CFE4D4] bg-[#F3FAF5] px-3 text-xs font-medium text-secondary transition-colors hover:bg-[#EAF6EE]"
             >
               新增公積金
@@ -342,7 +363,7 @@ export function TripDetailPage() {
                   <div key={contribution.id} className="flex items-center justify-between rounded-2xl bg-[#F8FBF8] px-4 py-3">
                     <div>
                       <p className="font-medium">{member?.user.name}</p>
-                      <p className="text-xs text-muted-foreground">{new Date(contribution.date).toISOString().slice(0, 10)}</p>
+                      <p className="text-xs text-muted-foreground">{toDateInputValue(contribution.date)}</p>
                     </div>
                     <div className="text-right">
                       <p className="font-semibold text-secondary">{formatCurrency(contribution.amount)}</p>

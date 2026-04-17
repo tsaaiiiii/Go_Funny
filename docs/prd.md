@@ -195,6 +195,20 @@
 
 刪除支出
 
+`PATCH /trips/:tripId/expenses/:expenseId`
+
+編輯支出
+
+### 前端路由
+
+`/trip/:tripId/new-expense`
+
+新增記錄入口。一般記帳旅程只顯示新增支出表單；公積金旅程在同一頁提供「新增支出」與「新增公積金」tab，首頁卡片與底部新增入口都導向此路由。
+
+`/trip/:tripId/expenses/:expenseId/edit`
+
+支出編輯頁，與新增支出共用表單，支援更新名稱、金額、日期、付款人、分攤類型與備註。
+
 ---
 
 ## 4. Contributions

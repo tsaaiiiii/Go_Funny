@@ -13,7 +13,6 @@ export function AppShell({ children }: PropsWithChildren) {
     location.pathname === '/settlement' ||
     /^\/trip\/[^/]+$/.test(location.pathname) ||
     /^\/trip\/[^/]+\/new-expense$/.test(location.pathname) ||
-    /^\/trip\/[^/]+\/new-contribution$/.test(location.pathname) ||
     /^\/trip\/[^/]+\/settlement$/.test(location.pathname)
   const isTripDetailPage = /^\/trip\/[^/]+$/.test(location.pathname)
 

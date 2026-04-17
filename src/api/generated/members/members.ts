@@ -25,6 +25,7 @@ import type {
 } from '@tanstack/react-query';
 
 import type {
+  BadRequestErrorResponse,
   ErrorResponse,
   TripMembershipWithUser,
   UnauthorizedErrorResponse
@@ -167,13 +168,18 @@ export type deleteTripMemberResponse204 = {
 }
 
 export type deleteTripMemberResponse400 = {
-  data: ErrorResponse
+  data: BadRequestErrorResponse
   status: 400
 }
 
 export type deleteTripMemberResponse401 = {
   data: UnauthorizedErrorResponse
   status: 401
+}
+
+export type deleteTripMemberResponse403 = {
+  data: ErrorResponse
+  status: 403
 }
 
 export type deleteTripMemberResponse404 = {
@@ -184,7 +190,7 @@ export type deleteTripMemberResponse404 = {
 export type deleteTripMemberResponseSuccess = (deleteTripMemberResponse204) & {
   headers: Headers;
 };
-export type deleteTripMemberResponseError = (deleteTripMemberResponse400 | deleteTripMemberResponse401 | deleteTripMemberResponse404) & {
+export type deleteTripMemberResponseError = (deleteTripMemberResponse400 | deleteTripMemberResponse401 | deleteTripMemberResponse403 | deleteTripMemberResponse404) & {
   headers: Headers;
 };
 
@@ -214,7 +220,7 @@ export const deleteTripMember = async (tripId: string,
 
 
 
-export const getDeleteTripMemberMutationOptions = <TError = ErrorType<ErrorResponse | UnauthorizedErrorResponse>,
+export const getDeleteTripMemberMutationOptions = <TError = ErrorType<BadRequestErrorResponse | UnauthorizedErrorResponse | ErrorResponse>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteTripMember>>, TError,{tripId: string;memberId: string}, TContext>, }
 ): UseMutationOptions<Awaited<ReturnType<typeof deleteTripMember>>, TError,{tripId: string;memberId: string}, TContext> => {
 
@@ -243,12 +249,12 @@ const {mutation: mutationOptions} = options ?
 
     export type DeleteTripMemberMutationResult = NonNullable<Awaited<ReturnType<typeof deleteTripMember>>>
 
-    export type DeleteTripMemberMutationError = ErrorType<ErrorResponse | UnauthorizedErrorResponse>
+    export type DeleteTripMemberMutationError = ErrorType<BadRequestErrorResponse | UnauthorizedErrorResponse | ErrorResponse>
 
     /**
  * @summary 刪除旅程成員
  */
-export const useDeleteTripMember = <TError = ErrorType<ErrorResponse | UnauthorizedErrorResponse>,
+export const useDeleteTripMember = <TError = ErrorType<BadRequestErrorResponse | UnauthorizedErrorResponse | ErrorResponse>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteTripMember>>, TError,{tripId: string;memberId: string}, TContext>, }
  , queryClient?: QueryClient): UseMutationResult<
         Awaited<ReturnType<typeof deleteTripMember>>,

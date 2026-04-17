@@ -3,7 +3,6 @@ import { Navigate, Route, Routes } from 'react-router-dom'
 import { AppShell } from '@/components/layout/app-shell'
 import { AuthSignInPage } from '@/pages/auth-sign-in-page'
 import { AuthSignUpPage } from '@/pages/auth-sign-up-page'
-import { ContributionCreatePage } from '@/pages/contribution-create-page'
 import { ExpenseCreatePage } from '@/pages/expense-create-page'
 import { HomeEntryPage } from '@/pages/home-entry-page'
 import { InvitationAcceptPage } from '@/pages/invitation-accept-page'
@@ -33,7 +32,7 @@ export default function App() {
         <Route path="/trip/:tripId/manage" element={<TripManagePage />} />
         <Route path="/trip/:tripId/members" element={<MembersPage />} />
         <Route path="/trip/:tripId/new-expense" element={<ExpenseCreatePage />} />
-        <Route path="/trip/:tripId/new-contribution" element={<ContributionCreatePage />} />
+        <Route path="/trip/:tripId/expenses/:expenseId/edit" element={<ExpenseCreatePage />} />
         <Route path="/trip/:tripId/settlement" element={<SettlementPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

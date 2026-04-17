@@ -34,6 +34,7 @@ export function MembersPage() {
   const createInvitationMutation = useCreateTripInvitation()
   const [inviteToken, setInviteToken] = useState<string | null>(null)
   const [deletingMemberId, setDeletingMemberId] = useState<string | null>(null)
+  const [deleteMemberFlowPending, setDeleteMemberFlowPending] = useState(false)
 
   if (isPending) {
     return <LoadingState title="成員資料載入中" description="正在整理旅伴名單與邀請資訊。" />
@@ -57,6 +58,8 @@ export function MembersPage() {
 
   async function handleDeleteMember(memberId: string) {
     setDeletingMemberId(memberId)
+    setDeleteMemberFlowPending(true)
+    let shouldKeepLoadingState = false
     const deletingSelf = currentTrip.memberships.some(
       (member) =>
         member.id === memberId &&
@@ -65,12 +68,18 @@ export function MembersPage() {
     )
 
     try {
-      await deleteMemberMutation.mutateAsync({ tripId: tripId!, memberId })
+      const result = await deleteMemberMutation.mutateAsync({ tripId: tripId!, memberId })
+
+      if (result.status !== 204) {
+        showError('移除成員失敗', result.data.message || '請稍後再試。')
+        return
+      }
 
       if (deletingSelf) {
         queryClient.removeQueries({ queryKey: [`/trips/${tripId}`] })
         await queryClient.invalidateQueries({ queryKey: ['/trips'] })
         showSuccess('你已離開旅程')
+        shouldKeepLoadingState = true
         navigate('/', { replace: true })
         return
       }
@@ -81,6 +90,9 @@ export function MembersPage() {
       showError('移除成員失敗', '請稍後再試。')
     } finally {
       setDeletingMemberId(null)
+      if (!shouldKeepLoadingState) {
+        setDeleteMemberFlowPending(false)
+      }
     }
   }
 
@@ -112,11 +124,11 @@ export function MembersPage() {
 
   return (
     <div className="space-y-5 pb-4">
-      {deleteMemberMutation.isPending || createInvitationMutation.isPending ? (
+      {deleteMemberFlowPending || deleteMemberMutation.isPending || createInvitationMutation.isPending ? (
         <PageBlockingLoading
-          title={deleteMemberMutation.isPending ? '更新成員中' : '建立邀請中'}
+          title={deleteMemberFlowPending || deleteMemberMutation.isPending ? '更新成員中' : '建立邀請中'}
           description={
-            deleteMemberMutation.isPending
+            deleteMemberFlowPending || deleteMemberMutation.isPending
               ? '正在同步成員變更，請稍候。'
               : '正在產生邀請連結，請稍候。'
           }
@@ -202,9 +214,9 @@ export function MembersPage() {
                   <button
                     type="button"
                     onClick={() => handleDeleteMember(member.id)}
-                    disabled={locked || deleteMemberMutation.isPending}
+                    disabled={locked || deleteMemberFlowPending || deleteMemberMutation.isPending}
                     className={`inline-flex h-10 w-10 items-center justify-center rounded-full border ${
-                      locked || deleteMemberMutation.isPending
+                      locked || deleteMemberFlowPending || deleteMemberMutation.isPending
                         ? 'cursor-not-allowed border-border bg-[#F4F7F8] text-muted-foreground'
                         : 'border-[#EBCACA] bg-[#FFF5F5] text-[#C96B6B]'
                     }`}

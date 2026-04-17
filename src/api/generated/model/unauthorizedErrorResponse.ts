@@ -5,7 +5,9 @@
  * Go Funny 旅遊分帳 API 文件
  * OpenAPI spec version: 1.0.0
  */
+import type { UnauthorizedErrorResponseCode } from './unauthorizedErrorResponseCode';
 
 export interface UnauthorizedErrorResponse {
+  code: UnauthorizedErrorResponseCode;
   message: string;
 }

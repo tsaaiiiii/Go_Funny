@@ -6,6 +6,8 @@
  * OpenAPI spec version: 1.0.0
  */
 
+export * from './badRequestErrorResponse';
+export * from './badRequestErrorResponseCode';
 export * from './contribution';
 export * from './createContributionRequest';
 export * from './createExpenseRequest';
@@ -26,5 +28,8 @@ export * from './tripMembership';
 export * from './tripMembershipWithUser';
 export * from './tripMode';
 export * from './unauthorizedErrorResponse';
+export * from './unauthorizedErrorResponseCode';
+export * from './updateExpenseRequest';
 export * from './updateTripRequest';
 export * from './user';
+export * from './validationIssue';

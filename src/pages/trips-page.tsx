@@ -1,12 +1,16 @@
 import {
   CalendarDays,
+  Copy,
   LogOut,
   Pencil,
-  PiggyBank,
   Plane,
+  PlusCircle,
+  ReceiptText,
+  Share2,
   SquarePen,
   Users,
   Wallet,
+  WalletCards,
   X,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
@@ -23,6 +27,7 @@ import { PageBlockingLoading } from "@/components/ui/page-blocking-loading";
 import { SectionHeading } from "@/components/ui/section-heading";
 import { queueFlashToast, useToast } from "@/components/ui/toast";
 import { useGetTrips } from "@/api/generated/trips/trips";
+import { useCreateTripInvitation } from "@/api/generated/invitations/invitations";
 import { hasStatus } from "@/lib/api-response";
 import { authClient } from "@/lib/auth-client";
 import { formatCurrency } from "@/lib/currency";
@@ -44,11 +49,19 @@ export function TripsPage({ sessionUser }: TripsPageProps) {
   const navigate = useNavigate();
   const { showError, showSuccess } = useToast();
   const { data: tripsResponse, isPending: tripsPending } = useGetTrips();
+  const createInvitationMutation = useCreateTripInvitation();
   const trips = hasStatus(tripsResponse, 200) ? tripsResponse.data : [];
   const [mockSession, setMockSession] = useState<MockSession | null>(null);
   const [profileModalOpen, setProfileModalOpen] = useState(false);
   const [draftName, setDraftName] = useState("");
   const [signOutPending, setSignOutPending] = useState(false);
+  const [shareInvite, setShareInvite] = useState<{
+    tripId: string;
+    tripTitle: string;
+    inviteLink: string;
+  } | null>(null);
+  const [shareInviteByTripId, setShareInviteByTripId] = useState<Record<string, string>>({});
+  const [shareCopied, setShareCopied] = useState(false);
   const sortedTrips = useMemo(
     () =>
       trips
@@ -131,10 +144,63 @@ export function TripsPage({ sessionUser }: TripsPageProps) {
     }
   }
 
+  async function handleShareTrip(trip: (typeof trips)[number]) {
+    setShareCopied(false);
+    const existingInviteLink = shareInviteByTripId[trip.id];
+
+    if (existingInviteLink) {
+      setShareInvite({
+        tripId: trip.id,
+        tripTitle: trip.title,
+        inviteLink: existingInviteLink,
+      });
+      return;
+    }
+
+    try {
+      const result = await createInvitationMutation.mutateAsync({ tripId: trip.id });
+
+      if (result.status !== 201) {
+        showError("建立分享連結失敗", result.data.message || "請稍後再試。");
+        return;
+      }
+
+      const inviteLink = `${window.location.origin}/invitations/${result.data.token}`;
+
+      setShareInviteByTripId((current) => ({
+        ...current,
+        [trip.id]: inviteLink,
+      }));
+      setShareInvite({
+        tripId: trip.id,
+        tripTitle: trip.title,
+        inviteLink,
+      });
+      showSuccess("分享連結已建立", "你可以直接複製連結分享給旅伴。");
+    } catch {
+      showError("建立分享連結失敗", "請稍後再試。");
+    }
+  }
+
+  async function handleCopyShareLink() {
+    if (!shareInvite) return;
+
+    try {
+      await navigator.clipboard.writeText(shareInvite.inviteLink);
+      setShareCopied(true);
+      showSuccess("已複製分享連結");
+    } catch {
+      showError("複製失敗", "請檢查瀏覽器是否允許剪貼簿權限。");
+    }
+  }
+
   return (
     <div className="space-y-5 pb-3">
       {signOutPending ? (
         <PageBlockingLoading title="登出中" description="正在清除帳號狀態並返回登入頁。" />
+      ) : null}
+      {createInvitationMutation.isPending ? (
+        <PageBlockingLoading title="建立分享連結中" description="正在產生可傳給旅伴的邀請連結。" />
       ) : null}
       <MobileHeader
         title={
@@ -295,13 +361,24 @@ export function TripsPage({ sessionUser }: TripsPageProps) {
                         </p>
                       </div>
                     </div>
-                    <Link
-                      to={`/trip/${trip.id}/manage`}
-                      aria-label="編輯旅程"
-                      className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[#D8E8EB] bg-[#F4FAFB] text-primary transition-colors hover:bg-[#EAF4F7]"
-                    >
-                      <SquarePen className="h-4 w-4" />
-                    </Link>
+                    <div className="flex shrink-0 items-center gap-2">
+                      <button
+                        type="button"
+                        aria-label={`分享 ${trip.title}`}
+                        onClick={() => handleShareTrip(trip)}
+                        disabled={createInvitationMutation.isPending}
+                        className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-[#D8E8EB] bg-[#F4FAFB] text-primary transition-colors hover:bg-[#EAF4F7] disabled:pointer-events-none disabled:opacity-50"
+                      >
+                        <Share2 className="h-4 w-4" />
+                      </button>
+                      <Link
+                        to={`/trip/${trip.id}/manage`}
+                        aria-label="編輯旅程"
+                        className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-[#D8E8EB] bg-[#F4FAFB] text-primary transition-colors hover:bg-[#EAF4F7]"
+                      >
+                        <SquarePen className="h-4 w-4" />
+                      </Link>
+                    </div>
                   </div>
 
                   <div className="grid grid-cols-3 gap-3 text-sm">
@@ -334,24 +411,28 @@ export function TripsPage({ sessionUser }: TripsPageProps) {
                     </div>
                   </div>
 
-                  <div
-                    className={`grid gap-3 ${trip.mode === "pool" ? "grid-cols-2" : "grid-cols-1"}`}
-                  >
+                  <div className="grid grid-cols-3 gap-2">
                     <Link
                       to={`/trip/${trip.id}`}
-                      className="inline-flex h-11 items-center justify-center rounded-full bg-primary px-4 text-sm font-medium text-primary-foreground shadow-soft transition-all hover:bg-[#4E99A9]"
+                      className="inline-flex min-h-12 items-center justify-center gap-1 rounded-full bg-primary px-2 text-center text-xs font-medium leading-snug text-primary-foreground shadow-soft transition-all hover:bg-[#4E99A9]"
                     >
+                      <ReceiptText className="h-3.5 w-3.5 shrink-0" />
                       查看明細
                     </Link>
-                    {trip.mode === "pool" ? (
-                      <Link
-                        to={`/trip/${trip.id}/new-contribution`}
-                        className="inline-flex h-11 items-center justify-center gap-1 rounded-full border border-[#CFE4D4] bg-[#F3FAF5] px-4 text-sm font-medium text-secondary transition-all hover:bg-[#EAF6EE]"
-                      >
-                        <PiggyBank className="h-4 w-4" />
-                        新增公積金
-                      </Link>
-                    ) : null}
+                    <Link
+                      to={`/trip/${trip.id}/new-expense`}
+                      className="inline-flex min-h-12 items-center justify-center gap-1 rounded-full border border-[#CFE4D4] bg-[#F3FAF5] px-2 text-center text-xs font-medium leading-snug text-secondary transition-all hover:bg-[#EAF6EE]"
+                    >
+                      <PlusCircle className="h-3.5 w-3.5 shrink-0" />
+                      {trip.mode === "pool" ? "新增支出或公積金" : "新增支出"}
+                    </Link>
+                    <Link
+                      to={`/trip/${trip.id}/settlement`}
+                      className="inline-flex min-h-12 items-center justify-center gap-1 rounded-full border border-border bg-card px-2 text-center text-xs font-medium leading-snug text-foreground transition-all hover:bg-white"
+                    >
+                      <WalletCards className="h-3.5 w-3.5 shrink-0" />
+                      結算
+                    </Link>
                   </div>
                 </CardContent>
               </Card>
@@ -416,6 +497,58 @@ export function TripsPage({ sessionUser }: TripsPageProps) {
                       取消
                     </Button>
                     <Button onClick={handleSaveProfile}>儲存</Button>
+                  </div>
+                </div>
+              </div>
+            </div>,
+            document.body,
+          )
+        : null}
+      {shareInvite && typeof document !== "undefined"
+        ? createPortal(
+            <div className="fixed inset-0 z-30">
+              <div
+                className="absolute inset-0 bg-[#24464D]/35 backdrop-blur-sm"
+                onClick={() => setShareInvite(null)}
+                aria-hidden="true"
+              />
+              <div className="relative flex min-h-full items-end justify-center p-4 sm:items-center">
+                <div className="w-full max-w-sm rounded-3xl border border-[#D9E8EB] bg-[linear-gradient(180deg,#FCFEFE_0%,#F4FAFB_100%)] p-5 shadow-float">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-sm text-muted-foreground">分享旅程</p>
+                      <h3 className="mt-1 text-lg font-semibold leading-tight text-foreground">
+                        {shareInvite.tripTitle}
+                      </h3>
+                    </div>
+                    <button
+                      type="button"
+                      aria-label="關閉分享視窗"
+                      onClick={() => setShareInvite(null)}
+                      className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[#D8E8EB] bg-white text-muted-foreground transition-colors hover:bg-[#F3FAFB] hover:text-foreground"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
+
+                  <div className="mt-4 rounded-3xl border border-[#D6E6E9] bg-white/80 p-3">
+                    <div className="rounded-2xl bg-[#F6FBFC] px-4 py-3 text-sm leading-6 text-muted-foreground break-all">
+                      {shareInvite.inviteLink}
+                    </div>
+                  </div>
+
+                  <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-[1fr_auto]">
+                    <Button className="w-full gap-2" onClick={handleCopyShareLink}>
+                      <Copy className="h-4 w-4" />
+                      {shareCopied ? "已複製" : "複製分享連結"}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      className="w-full sm:w-auto"
+                      onClick={() => setShareInvite(null)}
+                    >
+                      關閉
+                    </Button>
                   </div>
                 </div>
               </div>
