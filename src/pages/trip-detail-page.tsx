@@ -233,11 +233,11 @@ export function TripDetailPage() {
                   active
                     ? 'border-primary bg-[#EEF7F8]'
                     : tab.isToday
-                      ? 'border-[#CFE5EA] bg-[#F7FBFC]'
+                      ? 'border-[#F1D4B3] bg-[#FFF7EC]'
                       : 'border-border bg-white'
                 }`}
               >
-                <p className={`text-sm font-medium ${active ? 'text-primary' : tab.isToday ? 'text-[#4F7E8A]' : 'text-foreground'}`}>{tab.label}</p>
+                <p className={`text-sm font-medium ${active ? 'text-primary' : tab.isToday ? 'text-[#9A5A2E]' : 'text-foreground'}`}>{tab.label}</p>
               </button>
             )
           })}

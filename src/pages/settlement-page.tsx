@@ -1,4 +1,4 @@
-import { ArrowRight, AlertCircle, Coins } from 'lucide-react'
+import { ArrowRight, AlertCircle, ChevronDown, Coins } from 'lucide-react'
 import { useParams } from 'react-router-dom'
 
 import { MobileHeader } from '@/components/layout/mobile-header'
@@ -39,6 +39,17 @@ export function SettlementPage() {
             const unallocated = expense.amount - splitSum
             if (unallocated <= 0) return null
             const payer = trip.memberships.find((member) => member.id === expense.payerMembershipId)
+            const participants = expense.splits
+              .map((split) => {
+                const member = trip.memberships.find((item) => item.id === split.membershipId)
+                if (!member) return null
+                return {
+                  membershipId: member.id,
+                  name: member.user.name,
+                  amount: split.amount,
+                }
+              })
+              .filter((item): item is { membershipId: string; name: string; amount: number } => item !== null)
             return {
               expenseId: expense.id,
               title: expense.title,
@@ -47,6 +58,7 @@ export function SettlementPage() {
               splitType: expense.splitType,
               payerName: payer?.user.name ?? '未指定付款人',
               unallocated,
+              participants,
             }
           })
           .filter((item): item is NonNullable<typeof item> => item !== null)
@@ -106,7 +118,7 @@ export function SettlementPage() {
                   </span>
                 </div>
                 <p className="mt-1 text-xs leading-5 text-[#7A4422]/75">
-                  這筆金額不會自動進入任何人的債務，請和旅伴討論後自行決定怎麼處理。
+                  平分除不盡的尾數，需由旅伴自行討論由誰承擔。
                 </p>
               </div>
             </div>
@@ -119,24 +131,51 @@ export function SettlementPage() {
                 </div>
                 <ul className="space-y-2">
                   {unallocatedExpenses.map((item) => (
-                    <li
-                      key={item.expenseId}
-                      className="rounded-2xl bg-[#FFFBF4] px-3 py-3 text-xs leading-5 text-[#7A4422]"
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#F5DDC2] text-[11px] font-semibold text-[#7A4422]">
-                          {item.payerName.charAt(0).toUpperCase()}
+                    <li key={item.expenseId}>
+                      <details className="group rounded-2xl bg-[#FFFBF4] text-xs leading-5 text-[#7A4422] [&_summary::-webkit-details-marker]:hidden">
+                        <summary className="cursor-pointer list-none px-3 py-3">
+                          <div className="flex items-center gap-3">
+                            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#F5DDC2] text-[11px] font-semibold text-[#7A4422]">
+                              {item.payerName.charAt(0).toUpperCase()}
+                            </div>
+                            <p className="min-w-0 flex-1 truncate text-sm font-medium text-[#5C341A]">
+                              {item.title}
+                            </p>
+                            <span className="shrink-0 rounded-full bg-[#F5DDC2] px-2.5 py-1 text-xs font-semibold text-[#9A5A2E]">
+                              +{formatCurrency(item.unallocated)}
+                            </span>
+                          </div>
+                          <div className="mt-1.5 flex items-center justify-between gap-2 pl-11 text-[11px] leading-5 text-[#7A4422]/80">
+                            <p className="min-w-0 flex-1">
+                              {item.payerName} 付 {formatCurrency(item.amount)}，{item.splitCount} 人平分後剩下 {formatCurrency(item.unallocated)}。
+                            </p>
+                            <span className="inline-flex shrink-0 items-center gap-1 font-medium text-[#9A5A2E]">
+                              查看細節
+                              <ChevronDown className="h-3 w-3 transition-transform group-open:rotate-180" />
+                            </span>
+                          </div>
+                        </summary>
+                        <div className="space-y-1.5 border-t border-[#F5DDC2]/70 px-3 py-3">
+                          <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#9A5A2E]/80">分攤明細</p>
+                          {item.participants.length > 0 ? (
+                            <ul className="space-y-1">
+                              {item.participants.map((participant) => (
+                                <li
+                                  key={participant.membershipId}
+                                  className="flex items-center justify-between rounded-xl bg-white px-2.5 py-1.5"
+                                >
+                                  <span className="text-[11px] text-[#7A4422]">{participant.name}</span>
+                                  <span className="text-[11px] font-medium text-[#7A4422]">
+                                    {formatCurrency(participant.amount)}
+                                  </span>
+                                </li>
+                              ))}
+                            </ul>
+                          ) : (
+                            <p className="text-[11px] text-[#7A4422]/70">尚未指定分攤對象。</p>
+                          )}
                         </div>
-                        <p className="min-w-0 flex-1 truncate text-sm font-medium text-[#5C341A]">
-                          {item.title}
-                        </p>
-                        <span className="shrink-0 rounded-full bg-[#F5DDC2] px-2.5 py-1 text-xs font-semibold text-[#9A5A2E]">
-                          +{formatCurrency(item.unallocated)}
-                        </span>
-                      </div>
-                      <p className="mt-1.5 pl-11 text-[11px] leading-5 text-[#7A4422]/80">
-                        {item.payerName} 付 {formatCurrency(item.amount)}，{item.splitCount} 人平分後剩下 {formatCurrency(item.unallocated)}。
-                      </p>
+                      </details>
                     </li>
                   ))}
                 </ul>
