@@ -6,6 +6,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { MobileHeader } from '@/components/layout/mobile-header'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
+import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { EmptyState } from '@/components/ui/empty-state'
 import { LoadingState } from '@/components/ui/loading-state'
 import { PageBlockingLoading } from '@/components/ui/page-blocking-loading'
@@ -80,6 +81,7 @@ export function TripDetailPage() {
   const deleteExpenseMutation = useDeleteTripExpense()
   const [deletingExpenseId, setDeletingExpenseId] = useState<string | null>(null)
   const [deleteExpenseFlowPending, setDeleteExpenseFlowPending] = useState(false)
+  const [pendingDeleteExpenseId, setPendingDeleteExpenseId] = useState<string | null>(null)
   const fallbackDate = getTodayInputValue()
   const startDateStr = trip ? toDateInputValue(trip.startDate) : fallbackDate
   const endDateStr = trip ? toDateInputValue(trip.endDate) : fallbackDate
@@ -141,9 +143,16 @@ export function TripDetailPage() {
       : trip.expenses.filter((expense) => toDateInputValue(expense.date) === selectedDate)
   const selectedDateTotal = selectedDateExpenses.reduce((sum, expense) => sum + expense.amount, 0)
 
-  async function handleDeleteExpense(expenseId: string) {
+  const pendingDeleteExpense = pendingDeleteExpenseId
+    ? trip.expenses.find((expense) => expense.id === pendingDeleteExpenseId) ?? null
+    : null
+
+  async function handleConfirmDeleteExpense() {
+    if (!pendingDeleteExpenseId) return
+    const expenseId = pendingDeleteExpenseId
     setDeletingExpenseId(expenseId)
     setDeleteExpenseFlowPending(true)
+    setPendingDeleteExpenseId(null)
     try {
       const result = await deleteExpenseMutation.mutateAsync({ tripId: tripId!, expenseId })
 
@@ -167,6 +176,23 @@ export function TripDetailPage() {
       {deleteExpenseFlowPending || deleteExpenseMutation.isPending ? (
         <PageBlockingLoading title="刪除支出中" description="正在更新旅程明細，請稍候。" />
       ) : null}
+      <ConfirmDialog
+        open={Boolean(pendingDeleteExpense)}
+        title="確定要刪除這筆明細？"
+        description={
+          pendingDeleteExpense ? (
+            <>
+              將刪除「<span className="font-medium text-foreground">{pendingDeleteExpense.title}</span>
+              」，金額 {formatCurrency(pendingDeleteExpense.amount)}，此操作無法復原。
+            </>
+          ) : null
+        }
+        confirmText="刪除"
+        cancelText="取消"
+        tone="danger"
+        onCancel={() => setPendingDeleteExpenseId(null)}
+        onConfirm={handleConfirmDeleteExpense}
+      />
       <MobileHeader title={trip.title} backTo="/" />
 
       <Card className="border-none shadow-float">
@@ -210,7 +236,7 @@ export function TripDetailPage() {
 
       <SectionHeading title="每日明細" />
 
-      <div className="-mx-4 overflow-x-auto px-4 pb-1">
+      <div className="scrollbar-hide -mx-4 overflow-x-auto px-4 pb-1">
         <div className="flex gap-2">
           <button
             type="button"
@@ -314,7 +340,7 @@ export function TripDetailPage() {
                       </Link>
                       <button
                         type="button"
-                        onClick={() => handleDeleteExpense(expense.id)}
+                        onClick={() => setPendingDeleteExpenseId(expense.id)}
                         disabled={deleteExpenseMutation.isPending}
                         className="inline-flex h-7 items-center gap-1 rounded-full border border-[#F1C7C7] bg-[#FFF5F5] px-2.5 text-[11px] font-medium text-danger transition-colors hover:bg-[#FEEBEB]"
                       >

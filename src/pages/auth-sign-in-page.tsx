@@ -74,7 +74,7 @@ export function AuthSignInPage() {
               <Mail className="h-4 w-4 text-primary" />
               <input
                 className="w-full bg-transparent outline-none placeholder:text-muted-foreground"
-                placeholder="Email"
+                placeholder="請輸入 Email"
                 value={email}
                 onChange={(event) => setEmail(event.target.value)}
               />
@@ -84,7 +84,7 @@ export function AuthSignInPage() {
               <input
                 type="password"
                 className="w-full bg-transparent outline-none placeholder:text-muted-foreground"
-                placeholder="密碼"
+                placeholder="請輸入密碼"
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
               />

@@ -51,3 +51,14 @@ select {
 ::selection {
   background: rgba(95, 168, 184, 0.24);
 }
+
+@layer utilities {
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+}

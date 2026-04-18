@@ -407,14 +407,14 @@ export function TripCreatePage() {
         <CardContent className="space-y-5 pt-5">
           <div className="space-y-2">
             <label className="text-sm font-medium text-foreground">旅程名稱</label>
-            <input className="h-12 w-full rounded-2xl border border-border bg-white px-4 outline-none placeholder:text-muted-foreground focus:border-primary" placeholder="例如：京都初春散策" value={title} onChange={(event) => setTitle(event.target.value)} />
+            <input className="h-12 w-full rounded-2xl border border-border bg-white px-4 outline-none placeholder:text-muted-foreground focus:border-primary" placeholder="請輸入旅程名稱" value={title} onChange={(event) => setTitle(event.target.value)} />
           </div>
 
           <div className="space-y-2">
             <label className="text-sm font-medium text-foreground">地點</label>
             <div className="flex h-12 items-center gap-3 rounded-2xl border border-border bg-white px-4 focus-within:border-primary">
               <Compass className="h-5 w-5 text-primary" />
-              <input className="w-full bg-transparent outline-none placeholder:text-muted-foreground" placeholder="例如：京都 · 日本" value={location} onChange={(event) => setLocation(event.target.value)} />
+              <input className="w-full bg-transparent outline-none placeholder:text-muted-foreground" placeholder="請輸入地點" value={location} onChange={(event) => setLocation(event.target.value)} />
             </div>
           </div>
 

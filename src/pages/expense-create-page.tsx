@@ -355,7 +355,7 @@ export function ExpenseCreatePage() {
             <label className="text-sm font-medium text-foreground">項目名稱</label>
             <input
               className={`h-12 w-full rounded-2xl border bg-white px-4 outline-none ring-0 placeholder:text-muted-foreground focus:border-primary ${titleError ? 'border-danger' : 'border-border'}`}
-              placeholder="河原町晚餐"
+              placeholder="請輸入項目名稱"
               value={title}
               onChange={(event) => {
                 setTitle(event.target.value)
@@ -375,7 +375,7 @@ export function ExpenseCreatePage() {
               <input
                 className="w-full bg-transparent outline-none placeholder:text-muted-foreground"
                 inputMode="numeric"
-                placeholder="2400"
+                placeholder="請輸入金額"
                 value={amount}
                 onChange={(event) => {
                   const nextValue = event.target.value
@@ -579,7 +579,7 @@ export function ExpenseCreatePage() {
 
           <div className="space-y-2">
             <label className="text-sm font-medium text-foreground">備註</label>
-            <textarea className="min-h-24 w-full rounded-2xl border border-border bg-white px-4 py-3 outline-none placeholder:text-muted-foreground focus:border-primary" placeholder="例如：這餐只有部分人參加" value={note} onChange={(event) => setNote(event.target.value)} />
+            <textarea className="min-h-24 w-full rounded-2xl border border-border bg-white px-4 py-3 outline-none placeholder:text-muted-foreground focus:border-primary" placeholder="請輸入備註" value={note} onChange={(event) => setNote(event.target.value)} />
           </div>
         </CardContent>
       </Card>
@@ -651,7 +651,7 @@ export function ExpenseCreatePage() {
                     <input
                       className="w-full bg-transparent outline-none placeholder:text-muted-foreground"
                       inputMode="numeric"
-                      placeholder="3000"
+                      placeholder="請輸入金額"
                       value={contributionAmount}
                       onChange={(event) => {
                         const nextValue = event.target.value
