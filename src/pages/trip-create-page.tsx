@@ -31,6 +31,7 @@ import { useCreateTripInvitation } from '@/api/generated/invitations/invitations
 import { hasStatus } from '@/lib/api-response'
 import { authClient } from '@/lib/auth-client'
 import { getTodayInputValue, toDateInputValue } from '@/lib/date'
+import { buildInvitationLink } from '@/lib/invitations'
 import { readMockSession } from '@/lib/mock-session'
 import type { TripMode } from '@/api/generated/model'
 
@@ -256,7 +257,7 @@ export function TripCreatePage() {
       }
 
       setCreatedTripTitle(result.data.title)
-      setCreatedInviteLink(`${window.location.origin}/invitations/${invitationResult.data.token}`)
+      setCreatedInviteLink(buildInvitationLink(invitationResult.data.token))
       setInviteCopied(false)
     } catch {
       showError(

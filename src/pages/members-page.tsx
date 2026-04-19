@@ -1,4 +1,4 @@
-import { AlertTriangle, Copy, LoaderCircle, Trash2 } from 'lucide-react'
+import { AlertTriangle, Copy, LoaderCircle, RefreshCw, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
@@ -17,7 +17,9 @@ import { useGetTripById } from '@/api/generated/trips/trips'
 import { useDeleteTripMember } from '@/api/generated/members/members'
 import { useCreateTripInvitation } from '@/api/generated/invitations/invitations'
 import { hasStatus } from '@/lib/api-response'
+import { buildInvitationLink } from '@/lib/invitations'
 import { readMockSession } from '@/lib/mock-session'
+import type { Invitation } from '@/api/generated/model'
 
 export function MembersPage() {
   const { tripId } = useParams()
@@ -32,7 +34,8 @@ export function MembersPage() {
   const trip = hasStatus(tripResponse, 200) ? tripResponse.data : null
   const deleteMemberMutation = useDeleteTripMember()
   const createInvitationMutation = useCreateTripInvitation()
-  const [inviteToken, setInviteToken] = useState<string | null>(null)
+  const [invite, setInvite] = useState<Invitation | null>(null)
+  const [inviteCopied, setInviteCopied] = useState(false)
   const [deletingMemberId, setDeletingMemberId] = useState<string | null>(null)
   const [deleteMemberFlowPending, setDeleteMemberFlowPending] = useState(false)
 
@@ -100,8 +103,9 @@ export function MembersPage() {
     try {
       const result = await createInvitationMutation.mutateAsync({ tripId: tripId! })
       if (result.status === 201) {
-        setInviteToken(result.data.token)
-        showSuccess('邀請連結已建立', '你可以直接複製連結分享給旅伴。')
+        setInvite(result.data)
+        setInviteCopied(false)
+        showSuccess('新邀請連結已建立', '你可以直接複製連結分享給旅伴。')
       } else {
         showError('建立邀請失敗', '請稍後再試。')
       }
@@ -111,11 +115,12 @@ export function MembersPage() {
   }
 
   async function handleCopyInviteLink() {
-    if (!inviteToken) return
-    const inviteLink = `${window.location.origin}/invitations/${inviteToken}`
+    if (!invite) return
+    const inviteLink = buildInvitationLink(invite.token)
 
     try {
       await navigator.clipboard.writeText(inviteLink)
+      setInviteCopied(true)
       showSuccess('已複製邀請連結')
     } catch {
       showError('複製失敗', '請檢查瀏覽器是否允許剪貼簿權限。')
@@ -155,20 +160,26 @@ export function MembersPage() {
           <div className="flex items-center justify-between gap-3">
             <div>
               <p className="font-medium text-foreground">邀請好友加入</p>
-              <p className="text-sm text-muted-foreground">產生邀請連結分享給旅伴</p>
+              <p className="text-sm text-muted-foreground">產生新的邀請連結分享給旅伴</p>
             </div>
             <Badge tone="blue">協作</Badge>
           </div>
 
-          {inviteToken ? (
+          {invite ? (
             <>
               <div className="rounded-2xl border border-border bg-white px-4 py-3 text-sm text-muted-foreground break-all">
-                {`${window.location.origin}/invitations/${inviteToken}`}
+                {buildInvitationLink(invite.token)}
               </div>
-              <Button variant="outline" className="w-full gap-2" onClick={handleCopyInviteLink}>
-                <Copy className="h-4 w-4" />
-                複製邀請連結
-              </Button>
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                <Button variant="outline" className="w-full gap-2" onClick={handleCopyInviteLink}>
+                  <Copy className="h-4 w-4" />
+                  {inviteCopied ? '已複製' : '複製邀請連結'}
+                </Button>
+                <Button className="w-full gap-2" onClick={handleCreateInviteLink} disabled={createInvitationMutation.isPending}>
+                  <RefreshCw className="h-4 w-4" />
+                  {createInvitationMutation.isPending ? '建立中...' : '重新產生邀請連結'}
+                </Button>
+              </div>
             </>
           ) : (
             <Button className="w-full" onClick={handleCreateInviteLink} disabled={createInvitationMutation.isPending}>

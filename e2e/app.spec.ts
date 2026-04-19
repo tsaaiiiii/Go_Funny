@@ -67,8 +67,8 @@ test('接受邀請後走註冊流程會自動加入旅程', async ({ page }) => 
   await page.getByPlaceholder('密碼').fill('12345678')
   await page.getByRole('button', { name: '使用 Email 註冊' }).click()
 
-  await page.waitForURL(`**/trip/${expenseTrip.id}`)
-  await expect(page.getByText('新增支出')).toBeVisible()
+  await page.waitForURL('**/')
+  await expect(page.getByText('你的旅程')).toBeVisible()
   await expect(page.getByText(expenseTrip.title).first()).toBeVisible()
   expect(pageErrors).toEqual([])
 })
@@ -88,7 +88,7 @@ test('主要路由可正常 render，不會出現 hooks crash', async ({ page })
     { path: '/trip/new', text: '旅程名稱' },
     { path: `/trip/${expenseTrip.id}/edit`, text: '旅程名稱' },
     { path: `/trip/${expenseTrip.id}/new-expense`, text: '分攤方式' },
-    { path: `/trip/${poolTrip.id}/new-contribution`, text: '存入資訊' },
+    { path: `/trip/${poolTrip.id}/new-expense?tab=contribution`, text: '存入資訊' },
   ]
 
   for (const route of routes) {
@@ -99,8 +99,40 @@ test('主要路由可正常 render，不會出現 hooks crash', async ({ page })
 
   await page.goto(`/trip/${expenseTrip.id}/members`)
   await page.getByRole('button', { name: '產生邀請連結' }).click()
-  await expect(page.getByText('generated-invite-token')).toBeVisible()
+  await expect(page.getByText('generated-invite-token-1')).toBeVisible()
+  await page.getByRole('button', { name: '重新產生邀請連結' }).click()
+  await expect(page.getByText('generated-invite-token-2')).toBeVisible()
 
+  expect(pageErrors).toEqual([])
+})
+
+test('首頁分享旅程會每次取得新的邀請連結', async ({ page }) => {
+  const pageErrors = trackPageErrors(page)
+  await mockAppApi(page, { authenticated: true })
+
+  await page.goto('/')
+  await page.waitForLoadState('networkidle')
+
+  await page.getByRole('button', { name: `分享 ${expenseTrip.title}` }).click()
+  await expect(page.getByText('generated-invite-token-1')).toBeVisible()
+  await page.getByRole('button', { name: '關閉', exact: true }).click()
+
+  await page.getByRole('button', { name: `分享 ${expenseTrip.title}` }).click()
+  await expect(page.getByText('generated-invite-token-2')).toBeVisible()
+
+  expect(pageErrors).toEqual([])
+})
+
+test('邀請查詢回傳過期錯誤時顯示重新產生提示', async ({ page }) => {
+  const pageErrors = trackPageErrors(page)
+  await mockAppApi(page)
+
+  await page.goto('/invitations/invite-expired')
+  await page.waitForLoadState('networkidle')
+
+  await expect(page.getByText('邀請連結已過期')).toBeVisible()
+  await expect(page.getByText('邀請已過期')).toBeVisible()
+  await expect(page.getByRole('button', { name: '回到首頁' })).toBeVisible()
   expect(pageErrors).toEqual([])
 })
 

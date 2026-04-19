@@ -241,15 +241,15 @@
 
 ### 14
 
-`POST /trips/:tripId/invitations`
+`POST /invitations/:tripId`
 
-建立邀請連結
+建立一天內有效的邀請連結；需要新邀請碼時前端需再次呼叫此 API
 
 ### 15
 
 `GET /invitations/:token`
 
-查詢邀請資訊
+查詢邀請資訊；若邀請過期，後端目前回 `400` 與 `message: "邀請已過期"`
 
 ### 16
 

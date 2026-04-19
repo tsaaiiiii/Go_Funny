@@ -6,6 +6,7 @@ import {
   Plane,
   PlusCircle,
   ReceiptText,
+  RefreshCw,
   Share2,
   SquarePen,
   Users,
@@ -31,6 +32,7 @@ import { useCreateTripInvitation } from "@/api/generated/invitations/invitations
 import { hasStatus } from "@/lib/api-response";
 import { authClient } from "@/lib/auth-client";
 import { formatCurrency } from "@/lib/currency";
+import { buildInvitationLink } from "@/lib/invitations";
 import {
   clearMockSession,
   MockSession,
@@ -60,7 +62,6 @@ export function TripsPage({ sessionUser }: TripsPageProps) {
     tripTitle: string;
     inviteLink: string;
   } | null>(null);
-  const [shareInviteByTripId, setShareInviteByTripId] = useState<Record<string, string>>({});
   const [shareCopied, setShareCopied] = useState(false);
   const sortedTrips = useMemo(
     () =>
@@ -145,38 +146,34 @@ export function TripsPage({ sessionUser }: TripsPageProps) {
   }
 
   async function handleShareTrip(trip: (typeof trips)[number]) {
-    setShareCopied(false);
-    const existingInviteLink = shareInviteByTripId[trip.id];
+    await createShareInvite(trip.id, trip.title);
+  }
 
-    if (existingInviteLink) {
-      setShareInvite({
-        tripId: trip.id,
-        tripTitle: trip.title,
-        inviteLink: existingInviteLink,
-      });
-      return;
-    }
+  async function handleRefreshShareLink() {
+    if (!shareInvite) return;
+
+    await createShareInvite(shareInvite.tripId, shareInvite.tripTitle);
+  }
+
+  async function createShareInvite(tripId: string, tripTitle: string) {
+    setShareCopied(false);
 
     try {
-      const result = await createInvitationMutation.mutateAsync({ tripId: trip.id });
+      const result = await createInvitationMutation.mutateAsync({ tripId });
 
       if (result.status !== 201) {
         showError("建立分享連結失敗", result.data.message || "請稍後再試。");
         return;
       }
 
-      const inviteLink = `${window.location.origin}/invitations/${result.data.token}`;
+      const inviteLink = buildInvitationLink(result.data.token);
 
-      setShareInviteByTripId((current) => ({
-        ...current,
-        [trip.id]: inviteLink,
-      }));
       setShareInvite({
-        tripId: trip.id,
-        tripTitle: trip.title,
+        tripId,
+        tripTitle,
         inviteLink,
       });
-      showSuccess("分享連結已建立", "你可以直接複製連結分享給旅伴。");
+      showSuccess("新分享連結已建立", "你可以直接複製連結分享給旅伴。");
     } catch {
       showError("建立分享連結失敗", "請稍後再試。");
     }
@@ -536,11 +533,19 @@ export function TripsPage({ sessionUser }: TripsPageProps) {
                       {shareInvite.inviteLink}
                     </div>
                   </div>
-
-                  <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-[1fr_auto]">
+                  <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-[1fr_auto_auto]">
                     <Button className="w-full gap-2" onClick={handleCopyShareLink}>
                       <Copy className="h-4 w-4" />
                       {shareCopied ? "已複製" : "複製分享連結"}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      className="w-full gap-2 sm:w-auto"
+                      onClick={handleRefreshShareLink}
+                      disabled={createInvitationMutation.isPending}
+                    >
+                      <RefreshCw className="h-4 w-4" />
+                      {createInvitationMutation.isPending ? "建立中..." : "取得新連結"}
                     </Button>
                     <Button
                       variant="outline"

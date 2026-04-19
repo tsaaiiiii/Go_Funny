@@ -23,6 +23,14 @@ const invitationRoleLabel = {
   editor: '可共同編輯',
 } as const
 
+type InvitationLookupErrorResponse = {
+  status: number
+  data?: {
+    code?: string
+    message?: string
+  }
+}
+
 export function InvitationAcceptPage() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
@@ -40,7 +48,16 @@ export function InvitationAcceptPage() {
   const acceptInvitationMutation = useAcceptTripInvitation()
 
   const invitation = hasStatus(invitationResponse, 200) ? invitationResponse.data : null
-  const notFound = hasStatus(invitationResponse, 404)
+  const invitationLookupError =
+    invitationResponse && !hasStatus(invitationResponse, 200)
+      ? (invitationResponse as InvitationLookupErrorResponse)
+      : null
+  const invitationErrorCode = invitationLookupError?.data?.code ?? ''
+  const invitationErrorMessage = invitationLookupError?.data?.message ?? ''
+  const invitationExpired =
+    invitationErrorCode.toLowerCase().includes('expire') ||
+    invitationErrorMessage.toLowerCase().includes('expired') ||
+    invitationErrorMessage.includes('過期')
 
   useEffect(() => {
     if (!autoJoinRequested || !session?.user || !invitation || autoJoinStartedRef.current) {
@@ -64,13 +81,13 @@ export function InvitationAcceptPage() {
     return <LoadingState title="邀請資料載入中" description="正在確認旅程邀請內容。" />
   }
 
-  if (notFound) {
+  if (invitationLookupError) {
     return (
       <div className="space-y-5 pb-4">
         <MobileHeader title="加入旅程" backTo="/" />
         <EmptyState
-          title="邀請連結不存在"
-          description="這個邀請可能已失效，請請旅程成員重新產生新的邀請連結。"
+          title={invitationExpired ? '邀請連結已過期' : '邀請連結不存在'}
+          description={invitationErrorMessage || '這個邀請可能已失效，請旅程成員重新產生新的邀請連結。'}
           action={
             <Link to="/" className="inline-flex">
               <Button variant="outline">回到首頁</Button>

@@ -7,7 +7,9 @@
 - 使用者建立一個旅程
 - 建立成功後自動產生邀請連結，並在彈窗中提供複製按鈕
 - 建立者複製邀請連結後關閉彈窗並回到首頁
-- 建立者也可從首頁旅程卡片的分享按鈕重新產生分享連結
+- 建立者也可從首頁旅程卡片或成員管理頁重新產生分享連結
+- 邀請連結一天後過期，需要新連結時前端必須再次呼叫後端產生
+- 前端不自行用 `expiresAt` 判斷過期，邀請查詢失敗時以後端錯誤訊息顯示失效狀態
 - 朋友打開邀請連結
 - 朋友加入該旅程，並自動成為成員
 - 朋友之後可以共同編輯同一個旅程
@@ -32,9 +34,9 @@
 - `maxUses` 或單次使用標記
 - `role`，例如 `editor`
 
-建議 API 例如：
+目前後端 API：
 
-- `POST /trips/:tripId/invitations`
+- `POST /invitations/:tripId`
 - `GET /invitations/:token`
 - `POST /invitations/:token/accept`
 
@@ -54,9 +56,10 @@
 - 目前前端只先提供「複製邀請連結」的 UI 入口
 - 真正可用的邀請連結不應由前端自行亂組安全 token
 - 正式流程應為：
-  - 前端呼叫後端 API 建立 invitation
+  - 前端呼叫 `POST /invitations/:tripId` 建立 invitation
   - 後端回傳真正的 invite URL 或 token
   - 前端再把這個連結提供給使用者複製
+  - 若使用者需要新的邀請碼，前端再次呼叫同一個 POST API，不沿用舊 token
 
 ## 重要結論
 
@@ -77,7 +80,7 @@
 前端應該：
 
 - 呼叫 `POST /trips`
-- 呼叫 `POST /trips/:tripId/invitations`
+- 呼叫 `POST /invitations/:tripId`
 - 從後端拿到：
   - `token`
   - 或完整 `inviteUrl`
@@ -103,6 +106,7 @@
 - 前端進入邀請頁
 - 用 token 呼叫後端查詢邀請資訊
 - 顯示「你被邀請加入 XXX 旅程」
+- 若後端回 `400` 且 message 為「邀請已過期」，顯示過期並提示旅程成員重新產生新的邀請連結
 - 使用者確認加入
 - 前端呼叫 `POST /invitations/:token/accept`
 - 後端把使用者加入旅程 collaborator
@@ -114,4 +118,5 @@
 - `src/pages/trip-create-page.tsx` 會在建立旅程成功後接著呼叫後端建立 invitation
 - 建立成功彈窗會顯示邀請連結，並提供複製按鈕與關閉按鈕
 - 使用者關閉彈窗後會回到首頁
-- `src/pages/trips-page.tsx` 的旅程卡片提供分享按鈕，可再次建立並複製邀請連結
+- `src/pages/trips-page.tsx` 的旅程卡片提供分享按鈕，每次分享都會重新呼叫 invitation API
+- `src/pages/members-page.tsx` 可複製目前顯示的邀請連結，也可重新產生新的邀請連結

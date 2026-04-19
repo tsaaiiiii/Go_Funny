@@ -317,6 +317,7 @@ export async function mockAppApi(
     authenticated?: boolean
   } = {},
 ) {
+  let generatedInvitationCount = 0
   let currentUser: MockUser | null = options.authenticated
     ? {
         id: 'signed-in-user',
@@ -441,10 +442,12 @@ export async function mockAppApi(
     }
 
     if (path === `/api/invitations/${expenseTrip.id}` && method === 'POST') {
+      generatedInvitationCount += 1
+
       await fulfillJson(route, 201, {
         id: 'invitation-generated',
         tripId: expenseTrip.id,
-        token: 'generated-invite-token',
+        token: `generated-invite-token-${generatedInvitationCount}`,
         role: 'editor',
         maxUses: null,
         usedCount: 0,
@@ -459,6 +462,15 @@ export async function mockAppApi(
 
     if (path.startsWith('/api/invitations/') && method === 'GET') {
       const token = path.replace('/api/invitations/', '')
+
+      if (token === 'invite-expired') {
+        await fulfillJson(route, 400, {
+          code: 'bad_request',
+          message: '邀請已過期',
+        })
+        return
+      }
+
       const invitation = invitationByToken[token as keyof typeof invitationByToken]
 
       if (!invitation) {
